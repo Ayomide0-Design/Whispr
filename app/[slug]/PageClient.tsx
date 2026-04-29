@@ -82,7 +82,7 @@ function OwnerView({ page }: { page: Page }) {
   const sorted = useMemo(() => {
     return [...messages].sort((a, b) => {
       if (sortBy === 'hot') {
-        return b.total_reactions - a.total_reactions ||
+        return b.replies.length - a.replies.length ||
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -238,7 +238,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const sortedMessages = useMemo(() => {
     return [...messages].sort((a, b) => {
       if (sortBy === 'hot') {
-        return b.total_reactions - a.total_reactions ||
+        return b.replies.length - a.replies.length ||
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
