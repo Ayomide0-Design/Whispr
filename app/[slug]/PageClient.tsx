@@ -50,19 +50,11 @@ function useFeed(pageId: string) {
     )
   }, [])
 
-  // Real-time: reload feed when a new message arrives
+  // Poll every 5 seconds to pick up new messages, reactions and replies
   useEffect(() => {
-    const channel = supabase
-      .channel(`feed:${pageId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `page_id=eq.${pageId}` },
-        () => { load() }
-      )
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [pageId, load])
+    const interval = setInterval(() => { load() }, 5000)
+    return () => clearInterval(interval)
+  }, [load])
 
   return { messages, setMessages, loading, load, bumpReaction }
 }
@@ -193,6 +185,16 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
 
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
 
+  // Restore feed visibility after reload
+  useEffect(() => {
+    const key = `whispr_sent_${page.id}`
+    if (sessionStorage.getItem(key)) {
+      setSubmitted(true)
+      setFeedVisible(true)
+      load()
+    }
+  }, [page.id, load])
+
   useEffect(() => {
     if (submitted) return
     const interval = setInterval(() => {
@@ -215,6 +217,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
 
     if (res.ok) {
       setSubmitted(true)
+      sessionStorage.setItem(`whispr_sent_${page.id}`, '1')
       setCount((c) => c + 1)
       await load()
     } else {
