@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Send, Flame, Clock, ShieldCheck, CheckCircle, ArrowRight,
   Heart, Gift, HelpCircle, Copy, Check, Ghost, Lock,
@@ -182,6 +182,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const [sortBy, setSortBy] = useState<'hot' | 'latest'>('hot')
   const [promptIndex, setPromptIndex] = useState(0)
   const [count, setCount] = useState(initialCount)
+  const feedRef = useRef<HTMLDivElement>(null)
 
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
 
@@ -217,9 +218,11 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
 
     if (res.ok) {
       setSubmitted(true)
+      setFeedVisible(true)
       sessionStorage.setItem(`whispr_sent_${page.id}`, '1')
       setCount((c) => c + 1)
       await load(true)
+      setTimeout(() => feedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
     } else {
       const { error: err } = await res.json()
       setError(err || 'Something went wrong, try again')
@@ -251,7 +254,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
         </a>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-4 md:py-8">
         <div className="flex flex-col md:flex-row gap-6 items-start">
 
           {/* ── LEFT COLUMN ── */}
@@ -287,7 +290,6 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
                     maxLength={500}
                     rows={4}
                     className="input-field resize-none mb-2"
-                    autoFocus
                   />
                   {/* Starter chips */}
                   {!messageText && (
@@ -348,7 +350,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
           </div>
 
           {/* ── RIGHT COLUMN — Feed ── */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0" ref={feedRef}>
             {!feedVisible ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-black border border-white/10 mb-4">
