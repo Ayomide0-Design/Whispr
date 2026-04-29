@@ -35,11 +35,11 @@ function useFeed(pageId: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const load = useCallback(async (showLoader = false) => {
+    if (showLoader) setLoading(true)
     const res = await fetch(`/api/messages?page_id=${pageId}`)
     if (res.ok) setMessages(await res.json())
-    setLoading(false)
+    if (showLoader) setLoading(false)
   }, [pageId])
 
   const bumpReaction = useCallback((messageId: string) => {
@@ -71,7 +71,7 @@ function OwnerView({ page }: { page: Page }) {
     ? `${window.location.origin}/${page.slug}`
     : `/${page.slug}`
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(true) }, [load])
 
   async function handleCopy() {
     await navigator.clipboard.writeText(pageUrl)
@@ -191,7 +191,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
     if (sessionStorage.getItem(key)) {
       setSubmitted(true)
       setFeedVisible(true)
-      load()
+      load(true)
     }
   }, [page.id, load])
 
@@ -219,7 +219,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
       setSubmitted(true)
       sessionStorage.setItem(`whispr_sent_${page.id}`, '1')
       setCount((c) => c + 1)
-      await load()
+      await load(true)
     } else {
       const { error: err } = await res.json()
       setError(err || 'Something went wrong, try again')
@@ -229,7 +229,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
 
   async function handleViewMessages() {
     setFeedVisible(true)
-    if (messages.length === 0) await load()
+    if (messages.length === 0) await load(true)
   }
 
   const sortedMessages = useMemo(() => {

@@ -14,13 +14,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid emoji' }, { status: 400 })
   }
 
-  // Upsert — if same session already reacted to this message, update the emoji
+  // Delete any existing reaction from this session on this message first
+  await supabase
+    .from('reactions')
+    .delete()
+    .eq('message_id', message_id)
+    .eq('session_id', session_id)
+
+  // Then insert the new reaction
   const { data, error } = await supabase
     .from('reactions')
-    .upsert(
-      { message_id, emoji, session_id },
-      { onConflict: 'message_id,session_id' }
-    )
+    .insert({ message_id, emoji, session_id })
     .select()
     .single()
 
