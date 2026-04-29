@@ -56,6 +56,15 @@ export default function MessageCard({ message, onReactionAdded }: Props) {
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
 
+  // Sync reactions + replies when poll brings fresh data from server
+  useEffect(() => {
+    setReactions(message.reactions)
+  }, [message.reactions])
+
+  useEffect(() => {
+    setReplies(message.replies)
+  }, [message.replies])
+
   // Hydrate from localStorage after mount (client only)
   useEffect(() => {
     const map = getMyReactions()
