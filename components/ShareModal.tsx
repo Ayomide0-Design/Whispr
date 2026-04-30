@@ -202,7 +202,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             to enter screenshot mode
           </div>
 
-          {/* Capture mode prompt — OS shortcut shown after Space is pressed */}
+          {/* Capture mode prompt — shown after Space is pressed */}
           <div style={{
             position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
             opacity: captureMode ? 1 : 0,
@@ -218,8 +218,10 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             display: 'flex', alignItems: 'center', gap: '8px',
             boxShadow: '0 4px 20px rgba(51,92,255,0.5)',
           }}>
-            {mac ? '⌘ ⌃ ⇧ 4' : 'Win + Shift + S'}
-            <span style={{ opacity: 0.75, fontWeight: 400 }}>→ drag around the card</span>
+            {mac
+              ? <><span>⌘ ⇧ 4</span><span style={{ opacity: 0.75, fontWeight: 400 }}>press · release · then drag the card</span></>
+              : <><span>Win + Shift + S</span><span style={{ opacity: 0.75, fontWeight: 400 }}>then drag the card</span></>
+            }
           </div>
         </>
       )}
