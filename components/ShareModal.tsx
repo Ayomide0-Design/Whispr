@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { X, Copy, Check } from 'lucide-react'
+import { X, Copy, Check, Share2 } from 'lucide-react'
 import { Message, Reply } from '@/lib/types'
 
 interface Props {
@@ -24,44 +24,81 @@ function timeAgo(dateStr: string): string {
 
 const DOT_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1' fill='rgba(255%2C255%2C255%2C0.18)'/%3E%3C/svg%3E")`
 
-// Detect Mac vs Windows/other
 function isMac() {
   if (typeof navigator === 'undefined') return false
-  return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+  return /Mac/.test(navigator.platform || navigator.userAgent)
+}
+
+function isMobile() {
+  if (typeof navigator === 'undefined') return false
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
 export default function ShareModal({ message, replies, showReplies, ownerName, onClose }: Props) {
   const captureRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
   const [copying, setCopying] = useState(false)
-  // After a short delay, fade out UI chrome so user has a cleaner view to screenshot
   const [chromeVisible, setChromeVisible] = useState(true)
   const [hoveringCard, setHoveringCard] = useState(false)
+  const [mobile] = useState(() => isMobile())
+  const [mac] = useState(() => isMac())
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
-  const mac = isMac()
 
-  // Fade chrome after 1.5s — user can screenshot the clean card
+  // On desktop, fade chrome after 1.5s so the card is clean to screenshot
   useEffect(() => {
+    if (mobile) return
     const t = setTimeout(() => setChromeVisible(false), 1500)
     return () => clearTimeout(t)
-  }, [])
+  }, [mobile])
 
-  // Fallback: html2canvas copy (for mobile / users who prefer it)
+  async function buildCanvas() {
+    const html2canvas = (await import('html2canvas')).default
+    const scale = Math.max(window.devicePixelRatio * 2, 4)
+    return html2canvas(captureRef.current!, {
+      backgroundColor: '#335CFF',
+      scale,
+      useCORS: true,
+      logging: false,
+      imageTimeout: 0,
+      allowTaint: false,
+    })
+  }
+
+  // Mobile: open native share sheet with the image
+  async function handleMobileShare() {
+    if (!captureRef.current) return
+    setCopying(true)
+    try {
+      const canvas = await buildCanvas()
+      await new Promise<void>((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) { resolve(); return }
+          const file = new File([blob], 'whispr.png', { type: 'image/png' })
+          try {
+            if (navigator.share && navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], title: 'Whispr' })
+            } else {
+              // Fallback: download
+              const link = document.createElement('a')
+              link.download = `whispr-${message.id.slice(0, 8)}.png`
+              link.href = canvas.toDataURL('image/png')
+              link.click()
+            }
+          } catch { /* user cancelled share sheet */ }
+          resolve()
+        }, 'image/png')
+      })
+    } catch (e) { console.error(e) }
+    setCopying(false)
+  }
+
+  // Desktop fallback: copy to clipboard
   async function handleCopy() {
     if (!captureRef.current) return
     setCopying(true)
     try {
-      const html2canvas = (await import('html2canvas')).default
-      const scale = Math.max(window.devicePixelRatio * 2, 4)
-      const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: '#335CFF',
-        scale,
-        useCORS: true,
-        logging: false,
-        imageTimeout: 0,
-        allowTaint: false,
-      })
+      const canvas = await buildCanvas()
       await new Promise<void>((resolve) => {
         canvas.toBlob(async (blob) => {
           if (!blob) { resolve(); return }
@@ -78,9 +115,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
           resolve()
         }, 'image/png')
       })
-    } catch (e) {
-      console.error(e)
-    }
+    } catch (e) { console.error(e) }
     setCopying(false)
   }
 
@@ -250,39 +285,59 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         </div>
       </div>
 
-      {/* Bottom: screenshot hint (fades in) + fallback copy button (fades out) */}
+      {/* Bottom actions */}
       <div style={{ marginTop: '20px', textAlign: 'center' }}>
-        {/* Primary: screenshot instruction */}
-        <p style={{
-          color: 'rgba(255,255,255,0.55)', fontSize: '13px', margin: '0 0 10px',
-          opacity: chromeVisible ? 0 : 1,
-          transition: 'opacity 0.6s ease',
-        }}>
-          {mac
-            ? '⌘ ⇧ 4 → drag around the card → paste anywhere'
-            : 'Win + Shift + S → select the card → paste anywhere'}
-        </p>
-
-        {/* Fallback: html2canvas button */}
-        <button
-          onClick={e => { e.stopPropagation(); handleCopy() }}
-          disabled={copying}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            background: 'transparent', border: 'none',
-            color: copied ? '#4ade80' : 'rgba(255,255,255,0.3)',
-            fontSize: '13px', fontWeight: 500,
-            cursor: 'pointer', padding: '6px 12px',
-            opacity: copying ? 0.4 : 1,
-            transition: 'color 0.15s, opacity 0.15s',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          {copied
-            ? <><Check size={14} /> Copied to clipboard</>
-            : <><Copy size={14} /> {copying ? 'Copying...' : 'Or copy image directly'}</>
-          }
-        </button>
+        {mobile ? (
+          /* Mobile: big Share button → native share sheet */
+          <button
+            onClick={e => { e.stopPropagation(); handleMobileShare() }}
+            disabled={copying}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '10px',
+              background: '#335CFF', border: 'none', borderRadius: '14px',
+              color: 'white', fontSize: '16px', fontWeight: 600,
+              cursor: 'pointer', padding: '14px 32px',
+              opacity: copying ? 0.5 : 1,
+              transition: 'opacity 0.15s',
+              fontFamily: 'system-ui, sans-serif',
+            }}
+          >
+            <Share2 size={18} />
+            {copying ? 'Preparing…' : 'Share image'}
+          </button>
+        ) : (
+          /* Desktop: screenshot shortcut hint fades in, copy button is fallback */
+          <>
+            <p style={{
+              color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: '0 0 10px',
+              opacity: chromeVisible ? 0 : 1,
+              transition: 'opacity 0.6s ease',
+            }}>
+              {mac
+                ? '⌘ ⌃ ⇧ 4 → drag to select card → pastes to clipboard'
+                : 'Win + Shift + S → select the card → paste anywhere'}
+            </p>
+            <button
+              onClick={e => { e.stopPropagation(); handleCopy() }}
+              disabled={copying}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: '8px',
+                background: 'transparent', border: 'none',
+                color: copied ? '#4ade80' : 'rgba(255,255,255,0.3)',
+                fontSize: '13px', fontWeight: 500,
+                cursor: 'pointer', padding: '6px 12px',
+                opacity: copying ? 0.4 : 1,
+                transition: 'color 0.15s, opacity 0.15s',
+                fontFamily: 'system-ui, sans-serif',
+              }}
+            >
+              {copied
+                ? <><Check size={14} /> Copied to clipboard</>
+                : <><Copy size={14} /> {copying ? 'Copying…' : 'Or copy image directly'}</>
+              }
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
