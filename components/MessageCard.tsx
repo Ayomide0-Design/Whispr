@@ -11,6 +11,9 @@ interface Props {
   isOwner?: boolean
   ownerName?: string
   ownerToken?: string
+  /** Called whenever the current user performs an action (react, reply, hide).
+   *  The parent uses this to suppress spurious "new activity" toasts. */
+  onAction?: () => void
 }
 
 function timeAgo(dateStr: string): string {
@@ -52,7 +55,7 @@ function setMyReaction(messageId: string, emoji: string | null) {
   localStorage.setItem('whispr_reactions', JSON.stringify(map))
 }
 
-export default function MessageCard({ message, onReactionAdded, isOwner = false, ownerName = '', ownerToken = '' }: Props) {
+export default function MessageCard({ message, onReactionAdded, isOwner = false, ownerName = '', ownerToken = '', onAction }: Props) {
   const [reactions, setReactions] = useState(message.reactions)
   const [myEmoji, setMyEmoji] = useState<string | null>(null)
   const [replies, setReplies] = useState<Reply[]>(message.replies)
@@ -130,6 +133,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setMyEmoji(newEmoji)
     setMyReaction(message.id, newEmoji)
     if (!isSame) onReactionAdded(message.id)
+    onAction?.()
 
     // API call
     if (isSame) {
@@ -162,6 +166,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
       const newReply = await res.json()
       setReplies((prev) => [...prev, newReply])
       setReplyText('')
+      onAction?.()
     }
     setSubmittingReply(false)
   }
@@ -171,6 +176,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setTogglingHide(true)
     const next = !hidden
     setHidden(next) // optimistic
+    onAction?.()
     const res = await fetch('/api/hide', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -188,6 +194,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     const next = !currentlyHidden
     // Optimistic
     setReplies(prev => prev.map(r => r.id === replyId ? { ...r, hidden: next } : r))
+    onAction?.()
     await fetch('/api/hide', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

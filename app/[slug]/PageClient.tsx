@@ -83,6 +83,9 @@ function OwnerView({ page }: { page: Page }) {
   const [privateCopied, setPrivateCopied] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const prevRef = useRef<Message[]>([])
+  // When the owner takes an action themselves, suppress the next poll's toast
+  const suppressUntilRef = useRef(0)
+  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 7000 }
 
   const pageUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${page.slug}`
@@ -105,6 +108,9 @@ function OwnerView({ page }: { page: Page }) {
     if (messages.length === 0) return
     const prev = prevRef.current
     if (prev.length === 0) { prevRef.current = messages; return }
+
+    // If the owner just did something themselves, skip toasts for this poll cycle
+    if (Date.now() < suppressUntilRef.current) { prevRef.current = messages; return }
 
     const newToasts: ToastItem[] = []
     messages.forEach((msg) => {
@@ -235,7 +241,7 @@ function OwnerView({ page }: { page: Page }) {
         ) : (
           <div className="space-y-3">
             {sorted.map((msg) => (
-              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} isOwner ownerName={page.slug} ownerToken={page.owner_token} />
+              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} isOwner ownerName={page.slug} ownerToken={page.owner_token} onAction={suppressToasts} />
             ))}
           </div>
         )}
@@ -263,6 +269,9 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const feedRef = useRef<HTMLDivElement>(null)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const prevRef = useRef<Message[]>([])
+  // Suppress toasts for actions the visitor takes themselves
+  const suppressUntilRef = useRef(0)
+  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 7000 }
 
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
 
@@ -281,6 +290,9 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
     if (!feedVisible || messages.length === 0) return
     const prev = prevRef.current
     if (prev.length === 0) { prevRef.current = messages; return }
+
+    // If the visitor just did something themselves, skip toasts for this poll cycle
+    if (Date.now() < suppressUntilRef.current) { prevRef.current = messages; return }
 
     const newToasts: ToastItem[] = []
     messages.forEach((msg) => {
@@ -334,6 +346,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
       setFeedVisible(true)
       sessionStorage.setItem(`whispr_sent_${page.id}`, '1')
       setCount((c) => c + 1)
+      suppressToasts() // don't toast the visitor for their own message
       await load(true)
       setTimeout(() => feedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
     } else {
@@ -500,7 +513,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
                 ) : (
                   <div className="space-y-3">
                     {sortedMessages.map((msg) => (
-                      <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} ownerName={page.slug} />
+                      <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} ownerName={page.slug} onAction={suppressToasts} />
                     ))}
                   </div>
                 )}
