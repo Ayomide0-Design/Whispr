@@ -45,26 +45,30 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
-  // On desktop, fade chrome after 1.5s so the card is clean to screenshot
+  const [captureMode, setCaptureMode] = useState(false)
+
+  // On desktop, fade chrome after 1.5s
   useEffect(() => {
     if (mobile) return
     const t = setTimeout(() => setChromeVisible(false), 1500)
     return () => clearTimeout(t)
   }, [mobile])
 
-  // Spacebar triggers copy on desktop
+  // Space → enter capture mode (hide everything, show only card + OS shortcut prompt)
   useEffect(() => {
     if (mobile) return
     function onKey(e: KeyboardEvent) {
-      if (e.code === 'Space' && !copying) {
+      if (e.code === 'Space') {
         e.preventDefault()
-        handleCopy()
+        setCaptureMode(true)
+      }
+      if (e.code === 'Escape') {
+        setCaptureMode(false)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mobile, copying])
+  }, [mobile])
 
   async function buildCanvas() {
     const html2canvas = (await import('html2canvas')).default
@@ -135,21 +139,24 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
   return (
     <div
-      onClick={onClose}
+      onClick={captureMode ? undefined : onClose}
       style={{
         position: 'fixed',
         top: 0, left: 0, right: 0, bottom: 0,
         zIndex: 9998,
-        background: 'rgba(0,0,0,0.88)',
+        // In capture mode: near-transparent so the card stands alone on screen
+        background: captureMode ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.88)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        backdropFilter: 'blur(6px)',
+        backdropFilter: captureMode ? 'none' : 'blur(6px)',
+        cursor: captureMode ? 'crosshair' : 'default',
+        transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
     >
-      {/* Close button — fades out so it won't appear in screenshot */}
+      {/* Close button — hidden in capture mode */}
       <button
         onClick={onClose}
         style={{
@@ -159,40 +166,62 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
           borderRadius: '50%', width: '36px', height: '36px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: 'rgba(255,255,255,0.6)',
-          opacity: chromeVisible ? 1 : 0,
-          transition: 'opacity 0.6s ease',
-          pointerEvents: chromeVisible ? 'auto' : 'none',
+          opacity: (chromeVisible && !captureMode) ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          pointerEvents: (chromeVisible && !captureMode) ? 'auto' : 'none',
         }}
       >
         <X size={16} />
       </button>
 
-      {/* Hint pill — fades in when chrome fades out */}
       {!mobile && (
-        <div style={{
-          position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
-          opacity: chromeVisible ? 0 : 1,
-          transition: 'opacity 0.6s ease',
-          pointerEvents: 'none',
-          background: 'rgba(255,255,255,0.07)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: '100px',
-          padding: '6px 16px',
-          fontSize: '12px',
-          color: 'rgba(255,255,255,0.55)',
-          whiteSpace: 'nowrap',
-          display: 'flex', alignItems: 'center', gap: '8px',
-        }}>
-          <kbd style={{
-            background: 'rgba(255,255,255,0.12)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: '5px',
-            padding: '1px 7px',
-            fontSize: '11px',
-            fontFamily: 'inherit',
-          }}>Space</kbd>
-          to copy · click anywhere to close
-        </div>
+        <>
+          {/* "Press Space" hint — fades in after chrome fades, hidden in capture mode */}
+          <div style={{
+            position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
+            opacity: (!chromeVisible && !captureMode) ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+            pointerEvents: 'none',
+            background: 'rgba(255,255,255,0.07)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            borderRadius: '100px',
+            padding: '6px 16px',
+            fontSize: '12px',
+            color: 'rgba(255,255,255,0.55)',
+            whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: '8px',
+          }}>
+            <kbd style={{
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '5px',
+              padding: '1px 7px',
+              fontSize: '11px',
+              fontFamily: 'inherit',
+            }}>Space</kbd>
+            to enter screenshot mode
+          </div>
+
+          {/* Capture mode prompt — OS shortcut shown after Space is pressed */}
+          <div style={{
+            position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
+            opacity: captureMode ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            pointerEvents: 'none',
+            background: '#335CFF',
+            borderRadius: '100px',
+            padding: '7px 18px',
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'white',
+            whiteSpace: 'nowrap',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            boxShadow: '0 4px 20px rgba(51,92,255,0.5)',
+          }}>
+            {mac ? '⌘ ⌃ ⇧ 4' : 'Win + Shift + S'}
+            <span style={{ opacity: 0.75, fontWeight: 400 }}>→ drag around the card</span>
+          </div>
+        </>
       )}
 
       {/* Blue card */}
@@ -310,8 +339,13 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         </div>
       </div>
 
-      {/* Bottom actions */}
-      <div style={{ marginTop: '20px', textAlign: 'center' }}>
+      {/* Bottom actions — hidden in capture mode */}
+      <div style={{
+        marginTop: '20px', textAlign: 'center',
+        opacity: captureMode ? 0 : 1,
+        transition: 'opacity 0.25s ease',
+        pointerEvents: captureMode ? 'none' : 'auto',
+      }}>
         {mobile ? (
           /* Mobile: big Share button → native share sheet */
           <button
