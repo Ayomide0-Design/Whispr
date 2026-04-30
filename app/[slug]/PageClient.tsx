@@ -9,6 +9,7 @@ import {
 import { Page, Message, Mode, MODE_CONFIG } from '@/lib/types'
 import MessageCard from '@/components/MessageCard'
 import ViralCTA from '@/components/ViralCTA'
+import ToastStack, { ToastItem } from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
 
 const MODE_ICONS: Record<Mode, LucideIcon> = {
@@ -59,6 +60,16 @@ function useFeed(pageId: string) {
   return { messages, setMessages, loading, load, bumpReaction }
 }
 
+function scrollToMessage(messageId: string) {
+  const el = document.getElementById(`msg-${messageId}`)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  el.classList.remove('msg-highlight')
+  void el.offsetWidth // force reflow to restart animation
+  el.classList.add('msg-highlight')
+  setTimeout(() => el.classList.remove('msg-highlight'), 2200)
+}
+
 /* ─── OWNER VIEW ─────────────────────────────────────── */
 function OwnerView({ page }: { page: Page }) {
   const cfg = MODE_CONFIG[page.mode]
@@ -66,12 +77,47 @@ function OwnerView({ page }: { page: Page }) {
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
   const [sortBy, setSortBy] = useState<'hot' | 'latest'>('hot')
   const [copied, setCopied] = useState(false)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const prevRef = useRef<Message[]>([])
 
   const pageUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${page.slug}`
     : `/${page.slug}`
 
   useEffect(() => { load(true) }, [load])
+
+  // Detect changes from poll and fire toasts
+  useEffect(() => {
+    if (messages.length === 0) return
+    const prev = prevRef.current
+    if (prev.length === 0) { prevRef.current = messages; return }
+
+    const newToasts: ToastItem[] = []
+    messages.forEach((msg) => {
+      const old = prev.find((p) => p.id === msg.id)
+      if (!old) {
+        newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'message', text: 'New message received' })
+      } else {
+        if (msg.replies.length > old.replies.length) {
+          newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reply', text: 'New reply on a message' })
+        }
+        if (msg.total_reactions > old.total_reactions) {
+          const newest = msg.reactions.find((r) => {
+            const prev = old.reactions.find((x) => x.emoji === r.emoji)
+            return !prev || r.count > prev.count
+          })
+          newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reaction', emoji: newest?.emoji, text: 'Someone reacted to a message' })
+        }
+      }
+    })
+
+    if (newToasts.length > 0) setToasts((t) => [...t, ...newToasts].slice(-5))
+    prevRef.current = messages
+  }, [messages])
+
+  function dismissToast(id: string) {
+    setToasts((t) => t.filter((x) => x.id !== id))
+  }
 
   async function handleCopy() {
     await navigator.clipboard.writeText(pageUrl)
@@ -163,6 +209,7 @@ function OwnerView({ page }: { page: Page }) {
           </div>
         )}
       </div>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} onScrollTo={scrollToMessage} />
     </div>
   )
 }
@@ -183,6 +230,8 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const [promptIndex, setPromptIndex] = useState(0)
   const [count, setCount] = useState(initialCount)
   const feedRef = useRef<HTMLDivElement>(null)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const prevRef = useRef<Message[]>([])
 
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
 
@@ -195,6 +244,39 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
       load(true)
     }
   }, [page.id, load])
+
+  // Detect changes from poll and fire toasts (only when feed is visible)
+  useEffect(() => {
+    if (!feedVisible || messages.length === 0) return
+    const prev = prevRef.current
+    if (prev.length === 0) { prevRef.current = messages; return }
+
+    const newToasts: ToastItem[] = []
+    messages.forEach((msg) => {
+      const old = prev.find((p) => p.id === msg.id)
+      if (!old) {
+        newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'message', text: 'New message added' })
+      } else {
+        if (msg.replies.length > old.replies.length) {
+          newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reply', text: 'New reply on a message' })
+        }
+        if (msg.total_reactions > old.total_reactions) {
+          const newest = msg.reactions.find((r) => {
+            const oldR = old.reactions.find((x) => x.emoji === r.emoji)
+            return !oldR || r.count > oldR.count
+          })
+          newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reaction', emoji: newest?.emoji, text: 'Someone reacted to a message' })
+        }
+      }
+    })
+
+    if (newToasts.length > 0) setToasts((t) => [...t, ...newToasts].slice(-5))
+    prevRef.current = messages
+  }, [messages, feedVisible])
+
+  function dismissToast(id: string) {
+    setToasts((t) => t.filter((x) => x.id !== id))
+  }
 
   useEffect(() => {
     if (submitted) return
@@ -401,6 +483,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
           </div>
         </div>
       </div>
+      <ToastStack toasts={toasts} onDismiss={dismissToast} onScrollTo={scrollToMessage} />
     </div>
   )
 }

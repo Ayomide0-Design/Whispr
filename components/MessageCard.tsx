@@ -147,7 +147,7 @@ export default function MessageCard({ message, onReactionAdded }: Props) {
   const totalReactions = reactions.reduce((sum, r) => sum + r.count, 0)
 
   return (
-    <div className="card">
+    <div id={`msg-${message.id}`} className="card">
       {/* Message */}
       <p className="text-white/90 text-[15px] leading-relaxed mb-3">{message.content}</p>
       <p className="text-white/30 text-xs mb-4">{timeAgo(message.created_at)}</p>
