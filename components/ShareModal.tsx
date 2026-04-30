@@ -156,14 +156,14 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         position: 'fixed',
         top: 0, left: 0, right: 0, bottom: 0,
         zIndex: 9998,
-        // In capture mode: near-transparent so the card stands alone on screen
-        background: captureMode ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.88)',
+        // In capture mode: lighter overlay + heavier blur so background fades away
+        background: captureMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.88)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        backdropFilter: captureMode ? 'none' : 'blur(6px)',
+        backdropFilter: captureMode ? 'blur(20px) saturate(0.4)' : 'blur(6px)',
         cursor: captureMode ? 'crosshair' : 'default',
         transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
