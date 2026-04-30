@@ -48,7 +48,7 @@ function ToastCard({ toast, onDismiss, onScrollTo }: {
     <div
       onClick={handleClick}
       style={{
-        transform: visible ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.96)',
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(-16px) scale(0.96)',
         opacity: visible ? 1 : 0,
         transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
         cursor: 'pointer',
@@ -101,7 +101,7 @@ export default function ToastStack({ toasts, onDismiss, onScrollTo }: Props) {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '24px',
+      top: '24px',
       left: '50%',
       transform: 'translateX(-50%)',
       zIndex: 9999,
