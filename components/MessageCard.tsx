@@ -99,6 +99,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   async function handleReaction(emoji: string) {
     const sessionId = getSessionId()
     const isSame = myEmoji === emoji
+    onAction?.() // suppress toasts immediately — before any async work
 
     // Optimistic UI
     setReactions((prev) => {
@@ -133,7 +134,6 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setMyEmoji(newEmoji)
     setMyReaction(message.id, newEmoji)
     if (!isSame) onReactionAdded(message.id)
-    onAction?.()
 
     // API call
     if (isSame) {
@@ -154,6 +154,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   async function handleReply(e: React.FormEvent) {
     e.preventDefault()
     if (!replyText.trim() || submittingReply) return
+    onAction?.() // suppress toasts immediately — before API call
 
     setSubmittingReply(true)
     const res = await fetch('/api/replies', {
@@ -166,7 +167,6 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
       const newReply = await res.json()
       setReplies((prev) => [...prev, newReply])
       setReplyText('')
-      onAction?.()
     }
     setSubmittingReply(false)
   }
@@ -175,8 +175,8 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     if (!ownerToken || togglingHide) return
     setTogglingHide(true)
     const next = !hidden
+    onAction?.() // suppress before API call
     setHidden(next) // optimistic
-    onAction?.()
     const res = await fetch('/api/hide', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -193,8 +193,8 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     if (!ownerToken) return
     const next = !currentlyHidden
     // Optimistic
+    onAction?.() // suppress before API call
     setReplies(prev => prev.map(r => r.id === replyId ? { ...r, hidden: next } : r))
-    onAction?.()
     await fetch('/api/hide', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

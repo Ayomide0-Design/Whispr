@@ -85,7 +85,7 @@ function OwnerView({ page }: { page: Page }) {
   const prevRef = useRef<Message[]>([])
   // When the owner takes an action themselves, suppress the next poll's toast
   const suppressUntilRef = useRef(0)
-  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 7000 }
+  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 12000 }
 
   const pageUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${page.slug}`
@@ -119,7 +119,11 @@ function OwnerView({ page }: { page: Page }) {
         newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'message', text: 'New message received' })
       } else {
         if (msg.replies.length > old.replies.length) {
-          newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reply', text: 'New reply on a message' })
+          // Only toast for replies from visitors — owner's own replies have is_owner: true
+          const newReplies = msg.replies.filter(r => !old.replies.find(o => o.id === r.id))
+          if (newReplies.some(r => !r.is_owner)) {
+            newToasts.push({ id: crypto.randomUUID(), messageId: msg.id, type: 'reply', text: 'New reply on a message' })
+          }
         }
         if (msg.total_reactions > old.total_reactions) {
           const newest = msg.reactions.find((r) => {
@@ -271,7 +275,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const prevRef = useRef<Message[]>([])
   // Suppress toasts for actions the visitor takes themselves
   const suppressUntilRef = useRef(0)
-  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 7000 }
+  const suppressToasts = () => { suppressUntilRef.current = Date.now() + 12000 }
 
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
 
@@ -332,6 +336,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
     if (!messageText.trim() || sending) return
+    suppressToasts() // suppress before API call so no poll can sneak through
     setSending(true)
     setError('')
 
@@ -346,7 +351,6 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
       setFeedVisible(true)
       sessionStorage.setItem(`whispr_sent_${page.id}`, '1')
       setCount((c) => c + 1)
-      suppressToasts() // don't toast the visitor for their own message
       await load(true)
       setTimeout(() => feedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
     } else {
