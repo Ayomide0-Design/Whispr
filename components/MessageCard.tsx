@@ -69,6 +69,11 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setReactions(message.reactions)
   }, [message.reactions])
 
+  // Sync hidden flag from poll
+  useEffect(() => {
+    setHidden(message.hidden ?? false)
+  }, [message.hidden])
+
   // Sync replies + track new ones that arrived while thread was closed
   useEffect(() => {
     setReplies(prev => {
