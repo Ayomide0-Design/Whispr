@@ -22,6 +22,10 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+// SVG dot pattern as a data URI — html2canvas renders this reliably
+// (CSS radial-gradient and `inset` shorthand are not supported by html2canvas)
+const DOT_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1' fill='rgba(255%2C255%2C255%2C0.18)'/%3E%3C/svg%3E")`
+
 export default function ShareModal({ message, replies, showReplies, ownerName, onClose }: Props) {
   const captureRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
@@ -44,7 +48,6 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         allowTaint: false,
       })
 
-      // Wrap toBlob in a Promise so we properly await it before clearing state
       await new Promise<void>((resolve) => {
         canvas.toBlob(async (blob) => {
           if (!blob) { resolve(); return }
@@ -53,7 +56,6 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             setCopied(true)
             setTimeout(() => setCopied(false), 2500)
           } catch {
-            // Fallback: download if clipboard not supported
             const link = document.createElement('a')
             link.download = `whispr-${message.id.slice(0, 8)}.png`
             link.href = canvas.toDataURL('image/png')
@@ -72,7 +74,9 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, zIndex: 9998,
+        position: 'fixed',
+        top: 0, left: 0, right: 0, bottom: 0,
+        zIndex: 9998,
         background: 'rgba(0,0,0,0.85)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
@@ -95,31 +99,23 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         <X size={16} />
       </button>
 
-      {/* Blue card — this is what gets captured */}
+      {/* Blue card — captured by html2canvas */}
       <div
         ref={captureRef}
         onClick={e => e.stopPropagation()}
         style={{
           background: '#335CFF',
+          backgroundImage: DOT_BG,
+          backgroundRepeat: 'repeat',
           borderRadius: '24px',
           width: '480px',
           maxWidth: '100%',
           overflow: 'hidden',
           position: 'relative',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          WebkitFontSmoothing: 'antialiased',
-          MozOsxFontSmoothing: 'grayscale',
         } as React.CSSProperties}
       >
-        {/* Dot pattern overlay */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)',
-          backgroundSize: '24px 24px',
-          pointerEvents: 'none',
-        }} />
-
-        {/* Message card floating on blue */}
+        {/* Message card */}
         <div style={{ margin: '20px 20px 0', position: 'relative', zIndex: 1 }}>
           <div style={{
             background: '#000',
@@ -127,28 +123,52 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             borderRadius: '16px',
             padding: '18px',
           }}>
-            {/* Message */}
-            <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '14px', lineHeight: 1.6, margin: '0 0 8px' }}>
+            {/* Message text */}
+            <p style={{
+              color: 'rgba(255,255,255,0.9)',
+              fontSize: '15px',
+              lineHeight: '1.6',
+              margin: '0 0 6px',
+              fontFamily: 'inherit',
+            }}>
               {message.content}
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', margin: '0 0 12px' }}>
+            <p style={{
+              color: 'rgba(255,255,255,0.3)',
+              fontSize: '11px',
+              margin: topReactions.length > 0 || (showReplies && replies.length > 0) ? '0 0 12px' : '0',
+              fontFamily: 'inherit',
+            }}>
               {timeAgo(message.created_at)}
             </p>
 
             {/* Reactions */}
             {topReactions.length > 0 && (
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: replies.length > 0 && showReplies ? '12px' : '0' }}>
+              <div style={{
+                display: 'flex',
+                gap: '6px',
+                flexWrap: 'wrap',
+                marginBottom: showReplies && replies.length > 0 ? '12px' : '0',
+              }}>
                 {topReactions.map(r => (
                   <div key={r.emoji} style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.12)',
                     borderRadius: '100px',
-                    padding: '3px 9px',
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    fontSize: '13px',
+                    padding: '4px 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    lineHeight: '1',
                   }}>
-                    <span>{r.emoji}</span>
-                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px' }}>{r.count}</span>
+                    <span style={{ fontSize: '14px', lineHeight: '1' }}>{r.emoji}</span>
+                    <span style={{
+                      color: 'rgba(255,255,255,0.7)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      lineHeight: '1',
+                      fontFamily: 'inherit',
+                    }}>{r.count}</span>
                   </div>
                 ))}
               </div>
@@ -159,21 +179,39 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {replies.map(reply => (
                   <div key={reply.id} style={{
-                    background: reply.is_owner ? 'rgba(51,92,255,0.1)' : 'rgba(255,255,255,0.04)',
-                    border: reply.is_owner ? '1px solid rgba(51,92,255,0.3)' : '1px solid rgba(255,255,255,0.06)',
+                    background: reply.is_owner ? 'rgba(51,92,255,0.12)' : 'rgba(255,255,255,0.04)',
+                    border: reply.is_owner ? '1px solid rgba(51,92,255,0.35)' : '1px solid rgba(255,255,255,0.07)',
                     borderRadius: '10px',
                     padding: '10px 12px',
                   }}>
-                    <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 5px' }}>
+                    <p style={{
+                      color: 'rgba(255,255,255,0.85)',
+                      fontSize: '13px',
+                      lineHeight: '1.5',
+                      margin: '0 0 6px',
+                      fontFamily: 'inherit',
+                    }}>
                       {reply.content}
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px' }}>{timeAgo(reply.created_at)}</span>
+                      <span style={{
+                        color: 'rgba(255,255,255,0.25)',
+                        fontSize: '10px',
+                        fontFamily: 'inherit',
+                      }}>{timeAgo(reply.created_at)}</span>
                       {reply.is_owner && (
                         <span style={{
-                          background: '#335CFF', color: 'white',
-                          fontSize: '9px', fontWeight: 700,
-                          padding: '2px 6px', borderRadius: '100px',
+                          background: '#335CFF',
+                          color: 'white',
+                          fontSize: '9px',
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          padding: '3px 8px',
+                          borderRadius: '100px',
+                          lineHeight: '1',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          fontFamily: 'inherit',
                         }}>OWNER</span>
                       )}
                     </div>
@@ -187,14 +225,15 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         {/* Whispr watermark */}
         <div style={{
           textAlign: 'center',
-          padding: '16px 0 28px',
-          position: 'relative', zIndex: 1,
-          color: 'rgba(255,255,255,0.07)',
+          padding: '14px 0 26px',
+          position: 'relative',
+          zIndex: 1,
+          color: 'rgba(255,255,255,0.08)',
           fontSize: '72px',
           fontWeight: 700,
           letterSpacing: '-2px',
-          lineHeight: 1,
-          fontFamily: 'system-ui, sans-serif',
+          lineHeight: '1',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           userSelect: 'none',
         }}>
           Whispr
