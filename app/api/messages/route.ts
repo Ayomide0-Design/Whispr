@@ -38,19 +38,19 @@ export async function GET(req: NextRequest) {
     isOwner = !!page && page.owner_token === token
   }
 
-  // Visitors never receive hidden messages
-  let query = supabase
+  const { data: allMessages, error } = await supabase
     .from('messages')
     .select('*')
     .eq('page_id', page_id)
     .order('created_at', { ascending: false })
 
-  if (!isOwner) query = query.eq('hidden', false)
-
-  const { data: messages, error } = await query
+  // Filter hidden messages for visitors in JS (more reliable than query builder)
+  const messages = isOwner
+    ? (allMessages || [])
+    : (allMessages || []).filter(m => m.hidden !== true)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!messages?.length) return NextResponse.json([])
+  if (!messages.length) return NextResponse.json([])
 
   const messageIds = messages.map((m) => m.id)
 

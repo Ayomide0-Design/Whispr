@@ -163,22 +163,24 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
     >
-      {/* Close button — hidden in capture mode */}
+      {/* Cancel button — always visible so user can always exit */}
       <button
-        onClick={onClose}
+        onClick={(e) => { e.stopPropagation(); onClose() }}
         style={{
           position: 'absolute', top: '20px', right: '20px',
           background: 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: '50%', width: '36px', height: '36px',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          cursor: 'pointer', color: 'rgba(255,255,255,0.6)',
-          opacity: (chromeVisible && !captureMode) ? 1 : 0,
-          transition: 'opacity 0.3s ease',
-          pointerEvents: (chromeVisible && !captureMode) ? 'auto' : 'none',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: '100px',
+          padding: '6px 14px',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          cursor: 'pointer',
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: '12px',
+          fontFamily: 'system-ui, sans-serif',
+          zIndex: 10,
         }}
       >
-        <X size={16} />
+        <X size={13} /> Cancel
       </button>
 
       {!mobile && (

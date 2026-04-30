@@ -171,11 +171,15 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setTogglingHide(true)
     const next = !hidden
     setHidden(next) // optimistic
-    await fetch('/api/hide', {
+    const res = await fetch('/api/hide', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'message', id: message.id, hidden: next, token: ownerToken }),
     })
+    if (!res.ok) {
+      console.error('Hide failed:', await res.text())
+      setHidden(!next) // revert optimistic update
+    }
     setTogglingHide(false)
   }
 
