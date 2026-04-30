@@ -57,8 +57,34 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
+  // Pre-generated blob for mobile — ready before the user taps Share
+  const [mobileBlob, setMobileBlob] = useState<Blob | null>(null)
+  const [preparing, setPreparing] = useState(mobile)
+
   // Start in capture mode immediately on desktop
   const [captureMode, setCaptureMode] = useState(() => detectOS() !== 'mobile')
+
+  // On mobile: generate the image as soon as the card is rendered
+  useEffect(() => {
+    if (!mobile) return
+    let cancelled = false
+    async function prepare() {
+      // Wait one frame for the DOM to paint
+      await new Promise(r => setTimeout(r, 100))
+      if (cancelled || !captureRef.current) return
+      const html2canvas = (await import('html2canvas')).default
+      const scale = Math.max(window.devicePixelRatio * 2, 3)
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: '#335CFF', scale,
+        useCORS: true, logging: false, imageTimeout: 0,
+      })
+      canvas.toBlob(blob => {
+        if (!cancelled && blob) { setMobileBlob(blob); setPreparing(false) }
+      }, 'image/png')
+    }
+    prepare()
+    return () => { cancelled = true }
+  }, [mobile])
 
   // Fade chrome quickly on desktop
   useEffect(() => {
@@ -81,41 +107,26 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
     const html2canvas = (await import('html2canvas')).default
     const scale = Math.max(window.devicePixelRatio * 2, 4)
     return html2canvas(captureRef.current!, {
-      backgroundColor: '#335CFF',
-      scale,
-      useCORS: true,
-      logging: false,
-      imageTimeout: 0,
-      allowTaint: false,
+      backgroundColor: '#335CFF', scale,
+      useCORS: true, logging: false, imageTimeout: 0, allowTaint: false,
     })
   }
 
-  // Mobile: open native share sheet with the image
+  // Mobile: blob is pre-generated so navigator.share fires right after the tap
   async function handleMobileShare() {
-    if (!captureRef.current) return
-    setCopying(true)
+    if (!mobileBlob) return
+    const file = new File([mobileBlob], 'whispr.png', { type: 'image/png' })
     try {
-      const canvas = await buildCanvas()
-      await new Promise<void>((resolve) => {
-        canvas.toBlob(async (blob) => {
-          if (!blob) { resolve(); return }
-          const file = new File([blob], 'whispr.png', { type: 'image/png' })
-          try {
-            if (navigator.share && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: 'Whispr' })
-            } else {
-              // Fallback: download
-              const link = document.createElement('a')
-              link.download = `whispr-${message.id.slice(0, 8)}.png`
-              link.href = canvas.toDataURL('image/png')
-              link.click()
-            }
-          } catch { /* user cancelled share sheet */ }
-          resolve()
-        }, 'image/png')
-      })
-    } catch (e) { console.error(e) }
-    setCopying(false)
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Whispr' })
+      } else {
+        // Fallback: save to device
+        const url = URL.createObjectURL(mobileBlob)
+        const a = document.createElement('a')
+        a.href = url; a.download = 'whispr.png'; a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch { /* user cancelled */ }
   }
 
   // Desktop fallback: copy to clipboard
@@ -151,15 +162,15 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         position: 'fixed',
         top: 0, left: 0, right: 0, bottom: 0,
         zIndex: 9998,
-        // In capture mode: lighter overlay + heavier blur so background fades away
         background: captureMode ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.88)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
+        justifyContent: mobile ? 'flex-start' : 'center',
+        padding: mobile ? '70px 16px 32px' : '24px',
         backdropFilter: captureMode ? 'blur(10px) saturate(0.5)' : 'blur(6px)',
         cursor: captureMode ? 'crosshair' : 'default',
+        overflowY: mobile ? 'auto' : 'visible',
         transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
     >
@@ -311,9 +322,11 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
         {/* Whispr watermark */}
         <div style={{
-          textAlign: 'center', padding: '14px 0 26px',
+          textAlign: 'center',
+          padding: mobile ? '10px 0 18px' : '14px 0 26px',
           position: 'relative', zIndex: 1,
-          color: 'rgba(255,255,255,0.08)', fontSize: '72px',
+          color: 'rgba(255,255,255,0.08)',
+          fontSize: mobile ? '44px' : '72px',
           fontWeight: 700, letterSpacing: '-2px', lineHeight: '1',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
           userSelect: 'none',
@@ -333,19 +346,19 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
           /* Mobile: big Share button → native share sheet */
           <button
             onClick={e => { e.stopPropagation(); handleMobileShare() }}
-            disabled={copying}
+            disabled={preparing || !mobileBlob}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '10px',
               background: '#335CFF', border: 'none', borderRadius: '14px',
               color: 'white', fontSize: '16px', fontWeight: 600,
-              cursor: 'pointer', padding: '14px 32px',
-              opacity: copying ? 0.5 : 1,
+              cursor: preparing ? 'wait' : 'pointer', padding: '14px 32px',
+              opacity: preparing ? 0.6 : 1,
               transition: 'opacity 0.15s',
               fontFamily: 'system-ui, sans-serif',
             }}
           >
             <Share2 size={18} />
-            {copying ? 'Preparing…' : 'Share image'}
+            {preparing ? 'Preparing…' : 'Share screenshot'}
           </button>
         ) : (
           /* Desktop: Space copies, button is a visible fallback */
