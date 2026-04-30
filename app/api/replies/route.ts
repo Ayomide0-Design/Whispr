@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
-  const { message_id, content } = await req.json()
+  const { message_id, content, is_owner } = await req.json()
 
   if (!message_id || !content?.trim()) {
     return NextResponse.json({ error: 'Message ID and content required' }, { status: 400 })
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('replies')
-    .insert({ message_id, content: content.trim() })
+    .insert({ message_id, content: content.trim(), is_owner: is_owner === true })
     .select()
     .single()
 

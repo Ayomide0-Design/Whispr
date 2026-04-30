@@ -7,6 +7,7 @@ import { Message, Reply, REACTION_EMOJIS } from '@/lib/types'
 interface Props {
   message: Message
   onReactionAdded: (messageId: string) => void
+  isOwner?: boolean
 }
 
 function timeAgo(dateStr: string): string {
@@ -48,7 +49,7 @@ function setMyReaction(messageId: string, emoji: string | null) {
   localStorage.setItem('whispr_reactions', JSON.stringify(map))
 }
 
-export default function MessageCard({ message, onReactionAdded }: Props) {
+export default function MessageCard({ message, onReactionAdded, isOwner = false }: Props) {
   const [reactions, setReactions] = useState(message.reactions)
   const [myEmoji, setMyEmoji] = useState<string | null>(null)
   const [replies, setReplies] = useState<Reply[]>(message.replies)
@@ -133,7 +134,7 @@ export default function MessageCard({ message, onReactionAdded }: Props) {
     const res = await fetch('/api/replies', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message_id: message.id, content: replyText.trim() }),
+      body: JSON.stringify({ message_id: message.id, content: replyText.trim(), is_owner: isOwner }),
     })
 
     if (res.ok) {
@@ -201,7 +202,29 @@ export default function MessageCard({ message, onReactionAdded }: Props) {
             {replies.length > 0 && (
               <div className="space-y-2 mb-3">
                 {replies.map((reply) => (
-                  <div key={reply.id} className="bg-white/5 border border-white/5 rounded-xl px-3 py-2.5">
+                  <div
+                    key={reply.id}
+                    className="rounded-xl px-3 py-2.5"
+                    style={{
+                      background: reply.is_owner ? 'rgba(51,92,255,0.08)' : 'rgba(255,255,255,0.05)',
+                      border: reply.is_owner ? '1px solid rgba(51,92,255,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    {reply.is_owner && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <span style={{
+                          background: '#335CFF',
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 7px',
+                          borderRadius: '100px',
+                          letterSpacing: '0.04em',
+                        }}>
+                          OWNER
+                        </span>
+                      </div>
+                    )}
                     <p className="text-white/80 text-sm leading-relaxed">{reply.content}</p>
                     <p className="text-white/25 text-xs mt-1">{timeAgo(reply.created_at)}</p>
                   </div>

@@ -204,7 +204,7 @@ function OwnerView({ page }: { page: Page }) {
         ) : (
           <div className="space-y-3">
             {sorted.map((msg) => (
-              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} />
+              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} isOwner />
             ))}
           </div>
         )}

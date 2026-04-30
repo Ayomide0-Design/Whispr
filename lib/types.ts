@@ -121,4 +121,5 @@ export interface Reply {
   message_id: string
   content: string
   created_at: string
+  is_owner: boolean
 }
