@@ -77,6 +77,7 @@ function OwnerView({ page }: { page: Page }) {
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
   const [sortBy, setSortBy] = useState<'hot' | 'latest'>('latest')
   const [copied, setCopied] = useState(false)
+  const [privateCopied, setPrivateCopied] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const prevRef = useRef<Message[]>([])
 
@@ -135,6 +136,13 @@ function OwnerView({ page }: { page: Page }) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  async function handleCopyPrivate() {
+    const ownerUrl = typeof window !== 'undefined' ? window.location.href : ''
+    await navigator.clipboard.writeText(ownerUrl)
+    setPrivateCopied(true)
+    setTimeout(() => setPrivateCopied(false), 2000)
+  }
+
   const sorted = useMemo(() => {
     return [...messages].sort((a, b) => {
       if (sortBy === 'hot') {
@@ -148,23 +156,33 @@ function OwnerView({ page }: { page: Page }) {
   return (
     <div className="min-h-screen bg-dot-pattern">
       {/* Top bar */}
-      <div className="border-b border-white/5 px-5 py-4 flex items-center justify-between">
-        <a href="/" className="text-white/40 hover:text-white/70 text-sm font-semibold transition-colors">
-          whispr
-        </a>
-        {/* Link + copy in top right */}
-        <div className="flex items-center gap-2">
-          <span className="text-white/30 text-xs font-mono hidden sm:block truncate max-w-[220px]">
-            {pageUrl}
-          </span>
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? 'Copied!' : 'Copy link'}
-          </button>
+      <div className="border-b border-white/5 px-5 py-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <a href="/" className="text-white/40 hover:text-white/70 text-sm font-semibold transition-colors">
+            whispr
+          </a>
+          {/* Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? 'Copied!' : 'Share link'}
+            </button>
+            <button
+              onClick={handleCopyPrivate}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-yellow-500/30 text-yellow-400/70 hover:text-yellow-300 hover:border-yellow-500/50 transition-all"
+            >
+              {privateCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {privateCopied ? 'Copied!' : 'Copy private link'}
+            </button>
+          </div>
         </div>
+        {/* Reminder note */}
+        <p className="text-yellow-500/50 text-xs text-right">
+          🔒 Save your private link — it's the only way to access your messages from a new device
+        </p>
       </div>
 
       <div className="max-w-3xl mx-auto px-4 py-8">
