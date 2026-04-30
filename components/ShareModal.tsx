@@ -24,14 +24,25 @@ function timeAgo(dateStr: string): string {
 
 const DOT_BG = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1' fill='rgba(255%2C255%2C255%2C0.18)'/%3E%3C/svg%3E")`
 
-function isMac() {
-  if (typeof navigator === 'undefined') return false
-  return /Mac/.test(navigator.platform || navigator.userAgent)
+type OS = 'mac' | 'windows' | 'linux' | 'mobile'
+
+function detectOS(): OS {
+  if (typeof navigator === 'undefined') return 'windows'
+  const ua = navigator.userAgent
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return 'mobile'
+  // userAgentData is available in modern Chromium browsers
+  const platform = (navigator as any).userAgentData?.platform || navigator.platform || ''
+  if (/Mac/i.test(platform) || /Mac/i.test(ua)) return 'mac'
+  if (/Win/i.test(platform) || /Win/i.test(ua)) return 'windows'
+  if (/Linux/i.test(platform) || /Linux/i.test(ua)) return 'linux'
+  return 'windows'
 }
 
-function isMobile() {
-  if (typeof navigator === 'undefined') return false
-  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+const SCREENSHOT_HINT: Record<OS, { keys: string; action: string }> = {
+  mac:     { keys: '⌘ ⇧ 4',          action: 'press · release · then drag the card' },
+  windows: { keys: 'Win + Shift + S', action: 'then drag around the card' },
+  linux:   { keys: 'Shift + PrtScn',  action: 'then drag around the card' },
+  mobile:  { keys: '',                action: '' },
 }
 
 export default function ShareModal({ message, replies, showReplies, ownerName, onClose }: Props) {
@@ -40,8 +51,9 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
   const [copying, setCopying] = useState(false)
   const [chromeVisible, setChromeVisible] = useState(true)
   const [hoveringCard, setHoveringCard] = useState(false)
-  const [mobile] = useState(() => isMobile())
-  const [mac] = useState(() => isMac())
+  const [os] = useState<OS>(() => detectOS())
+  const mobile = os === 'mobile'
+  const hint = SCREENSHOT_HINT[os]
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
@@ -218,10 +230,8 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             display: 'flex', alignItems: 'center', gap: '8px',
             boxShadow: '0 4px 20px rgba(51,92,255,0.5)',
           }}>
-            {mac
-              ? <><span>⌘ ⇧ 4</span><span style={{ opacity: 0.75, fontWeight: 400 }}>press · release · then drag the card</span></>
-              : <><span>Win + Shift + S</span><span style={{ opacity: 0.75, fontWeight: 400 }}>then drag the card</span></>
-            }
+            <span>{hint.keys}</span>
+            <span style={{ opacity: 0.75, fontWeight: 400 }}>{hint.action}</span>
           </div>
         </>
       )}
