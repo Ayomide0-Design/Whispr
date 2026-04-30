@@ -34,11 +34,14 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
     setCopying(true)
     try {
       const html2canvas = (await import('html2canvas')).default
+      const scale = Math.max(window.devicePixelRatio * 2, 4)
       const canvas = await html2canvas(captureRef.current, {
         backgroundColor: null,
-        scale: 2,
+        scale,
         useCORS: true,
         logging: false,
+        imageTimeout: 0,
+        allowTaint: false,
       })
 
       canvas.toBlob(async (blob) => {
@@ -95,11 +98,14 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         style={{
           background: '#335CFF',
           borderRadius: '24px',
-          width: '100%',
-          maxWidth: '480px',
+          width: '480px',
+          maxWidth: '100%',
           overflow: 'hidden',
           position: 'relative',
-        }}
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        } as React.CSSProperties}
       >
         {/* Dot pattern overlay */}
         <div style={{
