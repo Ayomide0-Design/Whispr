@@ -126,8 +126,8 @@ export default function HomePage() {
       if (saved[data.slug]) {
         window.location.href = saved[data.slug]
       } else {
-        // Different device — take to public page only
-        window.location.href = `/${data.slug}`
+        setFindError("Page found but your owner link isn't saved on this device. Use your private owner link to access your messages.")
+        setFinding(false)
       }
     } else {
       setFindError('No page found with that username.')

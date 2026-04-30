@@ -86,6 +86,16 @@ function OwnerView({ page }: { page: Page }) {
 
   useEffect(() => { load(true) }, [load])
 
+  // Save owner link to localStorage so "find my page" works next time
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const fullUrl = window.location.href
+    if (!fullUrl.includes('token=')) return
+    const saved = JSON.parse(localStorage.getItem('whispr_owner_links') || '{}')
+    saved[page.slug] = fullUrl
+    localStorage.setItem('whispr_owner_links', JSON.stringify(saved))
+  }, [page.slug])
+
   // Detect changes from poll and fire toasts
   useEffect(() => {
     if (messages.length === 0) return
