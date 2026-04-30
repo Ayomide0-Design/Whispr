@@ -472,11 +472,11 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
             ) : (
               <div className="fade-up">
                 <div className="flex items-center gap-2 mb-5">
-                  <button onClick={() => setSortBy('hot')} className={`tab-btn ${sortBy === 'hot' ? 'active' : ''}`}>
-                    <span className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> Hot</span>
-                  </button>
                   <button onClick={() => setSortBy('latest')} className={`tab-btn ${sortBy === 'latest' ? 'active' : ''}`}>
                     <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Latest</span>
+                  </button>
+                  <button onClick={() => setSortBy('hot')} className={`tab-btn ${sortBy === 'hot' ? 'active' : ''}`}>
+                    <span className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> Hot</span>
                   </button>
                   <span className="text-white/30 text-xs ml-auto">
                     {messages.length} message{messages.length !== 1 ? 's' : ''}
