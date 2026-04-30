@@ -36,7 +36,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
       const html2canvas = (await import('html2canvas')).default
       const scale = Math.max(window.devicePixelRatio * 2, 4)
       const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: null,
+        backgroundColor: '#335CFF',
         scale,
         useCORS: true,
         logging: false,
@@ -44,19 +44,23 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         allowTaint: false,
       })
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) return
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-          setCopied(true)
-          setTimeout(() => setCopied(false), 2500)
-        } catch {
-          // Fallback: download if clipboard not supported
-          const link = document.createElement('a')
-          link.download = `whispr-${message.id.slice(0, 8)}.png`
-          link.href = canvas.toDataURL('image/png')
-          link.click()
-        }
+      // Wrap toBlob in a Promise so we properly await it before clearing state
+      await new Promise<void>((resolve) => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) { resolve(); return }
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            setCopied(true)
+            setTimeout(() => setCopied(false), 2500)
+          } catch {
+            // Fallback: download if clipboard not supported
+            const link = document.createElement('a')
+            link.download = `whispr-${message.id.slice(0, 8)}.png`
+            link.href = canvas.toDataURL('image/png')
+            link.click()
+          }
+          resolve()
+        }, 'image/png')
       })
     } catch (e) {
       console.error(e)
