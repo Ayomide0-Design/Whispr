@@ -59,14 +59,23 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [newReplyCount, setNewReplyCount] = useState(0)
 
-  // Sync reactions + replies when poll brings fresh data from server
+  // Sync reactions when poll brings fresh data
   useEffect(() => {
     setReactions(message.reactions)
   }, [message.reactions])
 
+  // Sync replies + track new ones that arrived while thread was closed
   useEffect(() => {
-    setReplies(message.replies)
+    setReplies(prev => {
+      const incoming = message.replies
+      if (!showReplies && incoming.length > prev.length) {
+        setNewReplyCount(c => c + (incoming.length - prev.length))
+      }
+      return incoming
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [message.replies])
 
   // Hydrate from localStorage after mount (client only)
@@ -185,13 +194,33 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
       {/* Replies toggle + share button */}
       <div className="flex items-center justify-between">
         <button
-          onClick={() => setShowReplies((v) => !v)}
+          onClick={() => {
+            setShowReplies((v) => !v)
+            setNewReplyCount(0)
+          }}
           className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1.5"
         >
           <MessageCircle className="w-3.5 h-3.5" />
           {replies.length > 0
             ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}`
             : 'Reply'}
+          {/* New reply badge */}
+          {newReplyCount > 0 && !showReplies && (
+            <span style={{
+              background: '#335CFF',
+              color: 'white',
+              fontSize: '9px',
+              fontWeight: 700,
+              padding: '2px 6px',
+              borderRadius: '100px',
+              lineHeight: '1',
+              display: 'inline-flex',
+              alignItems: 'center',
+              animation: 'pulse 1.5s ease-in-out infinite',
+            }}>
+              {newReplyCount} new
+            </span>
+          )}
           <ChevronDown
             className="w-3 h-3 transition-transform duration-300"
             style={{ transform: showReplies ? 'rotate(180deg)' : 'rotate(0deg)' }}
