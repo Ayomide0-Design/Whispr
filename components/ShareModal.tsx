@@ -52,6 +52,20 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
     return () => clearTimeout(t)
   }, [mobile])
 
+  // Spacebar triggers copy on desktop
+  useEffect(() => {
+    if (mobile) return
+    function onKey(e: KeyboardEvent) {
+      if (e.code === 'Space' && !copying) {
+        e.preventDefault()
+        handleCopy()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobile, copying])
+
   async function buildCanvas() {
     const html2canvas = (await import('html2canvas')).default
     const scale = Math.max(window.devicePixelRatio * 2, 4)
@@ -153,22 +167,33 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         <X size={16} />
       </button>
 
-      {/* Crosshair hint — fades in when chrome fades out */}
-      <div style={{
-        position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
-        opacity: chromeVisible ? 0 : 1,
-        transition: 'opacity 0.6s ease',
-        pointerEvents: 'none',
-        background: 'rgba(255,255,255,0.07)',
-        border: '1px solid rgba(255,255,255,0.12)',
-        borderRadius: '100px',
-        padding: '6px 14px',
-        fontSize: '12px',
-        color: 'rgba(255,255,255,0.5)',
-        whiteSpace: 'nowrap',
-      }}>
-        {mac ? '⌘ ⇧ 4 to screenshot the card · click anywhere to close' : 'Win + Shift + S to screenshot the card · click to close'}
-      </div>
+      {/* Hint pill — fades in when chrome fades out */}
+      {!mobile && (
+        <div style={{
+          position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
+          opacity: chromeVisible ? 0 : 1,
+          transition: 'opacity 0.6s ease',
+          pointerEvents: 'none',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '100px',
+          padding: '6px 16px',
+          fontSize: '12px',
+          color: 'rgba(255,255,255,0.55)',
+          whiteSpace: 'nowrap',
+          display: 'flex', alignItems: 'center', gap: '8px',
+        }}>
+          <kbd style={{
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '5px',
+            padding: '1px 7px',
+            fontSize: '11px',
+            fontFamily: 'inherit',
+          }}>Space</kbd>
+          to copy · click anywhere to close
+        </div>
+      )}
 
       {/* Blue card */}
       <div
@@ -306,37 +331,26 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
             {copying ? 'Preparing…' : 'Share image'}
           </button>
         ) : (
-          /* Desktop: screenshot shortcut hint fades in, copy button is fallback */
-          <>
-            <p style={{
-              color: 'rgba(255,255,255,0.6)', fontSize: '13px', margin: '0 0 10px',
-              opacity: chromeVisible ? 0 : 1,
-              transition: 'opacity 0.6s ease',
-            }}>
-              {mac
-                ? '⌘ ⌃ ⇧ 4 → drag to select card → pastes to clipboard'
-                : 'Win + Shift + S → select the card → paste anywhere'}
-            </p>
-            <button
-              onClick={e => { e.stopPropagation(); handleCopy() }}
-              disabled={copying}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                background: 'transparent', border: 'none',
-                color: copied ? '#4ade80' : 'rgba(255,255,255,0.3)',
-                fontSize: '13px', fontWeight: 500,
-                cursor: 'pointer', padding: '6px 12px',
-                opacity: copying ? 0.4 : 1,
-                transition: 'color 0.15s, opacity 0.15s',
-                fontFamily: 'system-ui, sans-serif',
-              }}
-            >
-              {copied
-                ? <><Check size={14} /> Copied to clipboard</>
-                : <><Copy size={14} /> {copying ? 'Copying…' : 'Or copy image directly'}</>
-              }
-            </button>
-          </>
+          /* Desktop: Space copies, button is a visible fallback */
+          <button
+            onClick={e => { e.stopPropagation(); handleCopy() }}
+            disabled={copying}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              background: 'transparent', border: 'none',
+              color: copied ? '#4ade80' : 'rgba(255,255,255,0.35)',
+              fontSize: '13px', fontWeight: 500,
+              cursor: 'pointer', padding: '6px 12px',
+              opacity: copying ? 0.4 : 1,
+              transition: 'color 0.15s, opacity 0.15s',
+              fontFamily: 'system-ui, sans-serif',
+            }}
+          >
+            {copied
+              ? <><Check size={14} /> Copied to clipboard</>
+              : <><Copy size={14} /> {copying ? 'Copying…' : 'Copy image'}</>
+            }
+          </button>
         )}
       </div>
     </div>
