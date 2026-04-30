@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { MessageCircle, ChevronDown, Send, ImageDown } from 'lucide-react'
 import { Message, Reply, REACTION_EMOJIS } from '@/lib/types'
-import ShareCard from './ShareCard'
+import ShareModal from './ShareModal'
 
 interface Props {
   message: Message
@@ -58,32 +58,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   const [showReplies, setShowReplies] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
-  const [sharing, setSharing] = useState(false)
-  const shareRef = useRef<HTMLDivElement>(null)
-
-  async function handleShare() {
-    setSharing(true)
-    try {
-      const html2canvas = (await import('html2canvas')).default
-      const el = shareRef.current
-      if (!el) return
-      el.style.display = 'block'
-      const canvas = await html2canvas(el, {
-        backgroundColor: '#0d0d0d',
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      })
-      el.style.display = 'none'
-      const link = document.createElement('a')
-      link.download = `whispr-${message.id.slice(0, 8)}.png`
-      link.href = canvas.toDataURL('image/png')
-      link.click()
-    } catch (e) {
-      console.error(e)
-    }
-    setSharing(false)
-  }
+  const [showShareModal, setShowShareModal] = useState(false)
 
   // Sync reactions + replies when poll brings fresh data from server
   useEffect(() => {
@@ -223,24 +198,24 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
           />
         </button>
         <button
-          onClick={handleShare}
-          disabled={sharing}
-          className="text-white/30 hover:text-white/60 text-xs transition-colors flex items-center gap-1.5 disabled:opacity-40"
+          onClick={() => setShowShareModal(true)}
+          className="text-white/30 hover:text-white/60 text-xs transition-colors flex items-center gap-1.5"
         >
           <ImageDown className="w-3.5 h-3.5" />
-          {sharing ? 'Saving...' : 'Save image'}
+          Share image
         </button>
       </div>
 
-      {/* Hidden share card — captured by html2canvas */}
-      <div ref={shareRef} style={{ display: 'none', position: 'fixed', left: '-9999px', top: 0 }}>
-        <ShareCard
+      {/* Share modal */}
+      {showShareModal && (
+        <ShareModal
           message={message}
           replies={replies}
           showReplies={showReplies}
           ownerName={ownerName}
+          onClose={() => setShowShareModal(false)}
         />
-      </div>
+      )}
 
       {/* Collapsible reply thread */}
       <div className={`reply-thread ${showReplies ? 'open' : ''}`}>
