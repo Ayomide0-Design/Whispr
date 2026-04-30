@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { MessageCircle, ChevronDown, Send } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { MessageCircle, ChevronDown, Send, ImageDown } from 'lucide-react'
 import { Message, Reply, REACTION_EMOJIS } from '@/lib/types'
+import ShareCard from './ShareCard'
 
 interface Props {
   message: Message
   onReactionAdded: (messageId: string) => void
   isOwner?: boolean
+  ownerName?: string
 }
 
 function timeAgo(dateStr: string): string {
@@ -49,13 +51,39 @@ function setMyReaction(messageId: string, emoji: string | null) {
   localStorage.setItem('whispr_reactions', JSON.stringify(map))
 }
 
-export default function MessageCard({ message, onReactionAdded, isOwner = false }: Props) {
+export default function MessageCard({ message, onReactionAdded, isOwner = false, ownerName = '' }: Props) {
   const [reactions, setReactions] = useState(message.reactions)
   const [myEmoji, setMyEmoji] = useState<string | null>(null)
   const [replies, setReplies] = useState<Reply[]>(message.replies)
   const [showReplies, setShowReplies] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const shareRef = useRef<HTMLDivElement>(null)
+
+  async function handleShare() {
+    setSharing(true)
+    try {
+      const html2canvas = (await import('html2canvas')).default
+      const el = shareRef.current
+      if (!el) return
+      el.style.display = 'block'
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#0d0d0d',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      el.style.display = 'none'
+      const link = document.createElement('a')
+      link.download = `whispr-${message.id.slice(0, 8)}.png`
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch (e) {
+      console.error(e)
+    }
+    setSharing(false)
+  }
 
   // Sync reactions + replies when poll brings fresh data from server
   useEffect(() => {
@@ -179,20 +207,40 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false 
         )}
       </div>
 
-      {/* Replies toggle button */}
-      <button
-        onClick={() => setShowReplies((v) => !v)}
-        className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1.5 mb-0"
-      >
-        <MessageCircle className="w-3.5 h-3.5" />
-        {replies.length > 0
-          ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}`
-          : 'Reply'}
-        <ChevronDown
-          className="w-3 h-3 transition-transform duration-300"
-          style={{ transform: showReplies ? 'rotate(180deg)' : 'rotate(0deg)' }}
+      {/* Replies toggle + share button */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => setShowReplies((v) => !v)}
+          className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1.5"
+        >
+          <MessageCircle className="w-3.5 h-3.5" />
+          {replies.length > 0
+            ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}`
+            : 'Reply'}
+          <ChevronDown
+            className="w-3 h-3 transition-transform duration-300"
+            style={{ transform: showReplies ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          />
+        </button>
+        <button
+          onClick={handleShare}
+          disabled={sharing}
+          className="text-white/30 hover:text-white/60 text-xs transition-colors flex items-center gap-1.5 disabled:opacity-40"
+        >
+          <ImageDown className="w-3.5 h-3.5" />
+          {sharing ? 'Saving...' : 'Save image'}
+        </button>
+      </div>
+
+      {/* Hidden share card — captured by html2canvas */}
+      <div ref={shareRef} style={{ display: 'none', position: 'fixed', left: '-9999px', top: 0 }}>
+        <ShareCard
+          message={message}
+          replies={replies}
+          showReplies={showReplies}
+          ownerName={ownerName}
         />
-      </button>
+      </div>
 
       {/* Collapsible reply thread */}
       <div className={`reply-thread ${showReplies ? 'open' : ''}`}>

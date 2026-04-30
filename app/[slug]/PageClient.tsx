@@ -232,7 +232,7 @@ function OwnerView({ page }: { page: Page }) {
         ) : (
           <div className="space-y-3">
             {sorted.map((msg) => (
-              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} isOwner />
+              <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} isOwner ownerName={page.slug} />
             ))}
           </div>
         )}
@@ -497,7 +497,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
                 ) : (
                   <div className="space-y-3">
                     {sortedMessages.map((msg) => (
-                      <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} />
+                      <MessageCard key={msg.id} message={msg} onReactionAdded={bumpReaction} ownerName={page.slug} />
                     ))}
                   </div>
                 )}
