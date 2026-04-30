@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { X, Copy, Check, Share2 } from 'lucide-react'
+import { X, Copy, Check, Camera } from 'lucide-react'
 import { Message, Reply } from '@/lib/types'
 
 interface Props {
@@ -30,7 +30,6 @@ function detectOS(): OS {
   if (typeof navigator === 'undefined') return 'windows'
   const ua = navigator.userAgent
   if (/iPhone|iPad|iPod|Android/i.test(ua)) return 'mobile'
-  // userAgentData is available in modern Chromium browsers
   const platform = (navigator as any).userAgentData?.platform || navigator.platform || ''
   if (/Mac/i.test(platform) || /Mac/i.test(ua)) return 'mac'
   if (/Win/i.test(platform) || /Win/i.test(ua)) return 'windows'
@@ -45,55 +44,38 @@ const SCREENSHOT_HINT: Record<OS, { keys: string; action: string }> = {
   mobile:  { keys: '',                action: '' },
 }
 
+// Per-device screenshot instructions shown on mobile
+const MOBILE_HINT: Record<string, string> = {
+  iPhone: 'Press Side + Volume Up',
+  iPad:   'Press Top + Volume Up',
+  Android: 'Press Power + Volume Down',
+}
+
+function getMobileDevice(): string {
+  if (typeof navigator === 'undefined') return 'Android'
+  const ua = navigator.userAgent
+  if (/iPad/i.test(ua)) return 'iPad'
+  if (/iPhone|iPod/i.test(ua)) return 'iPhone'
+  return 'Android'
+}
+
 export default function ShareModal({ message, replies, showReplies, ownerName, onClose }: Props) {
   const captureRef = useRef<HTMLDivElement>(null)
   const [copied, setCopied] = useState(false)
   const [copying, setCopying] = useState(false)
-  const [chromeVisible, setChromeVisible] = useState(true)
   const [hoveringCard, setHoveringCard] = useState(false)
   const [os] = useState<OS>(() => detectOS())
   const mobile = os === 'mobile'
   const hint = SCREENSHOT_HINT[os]
+  const mobileDevice = mobile ? getMobileDevice() : ''
+  const mobileHint = MOBILE_HINT[mobileDevice] ?? 'Press Power + Volume Down'
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
-  // Pre-generated blob for mobile — ready before the user taps Share
-  const [mobileBlob, setMobileBlob] = useState<Blob | null>(null)
-  const [preparing, setPreparing] = useState(mobile)
-
-  // Start in capture mode immediately on desktop
+  // Desktop: start in capture mode immediately
   const [captureMode, setCaptureMode] = useState(() => detectOS() !== 'mobile')
 
-  // On mobile: generate the image as soon as the card is rendered
-  useEffect(() => {
-    if (!mobile) return
-    let cancelled = false
-    async function prepare() {
-      // Wait one frame for the DOM to paint
-      await new Promise(r => setTimeout(r, 100))
-      if (cancelled || !captureRef.current) return
-      const html2canvas = (await import('html2canvas')).default
-      const scale = Math.max(window.devicePixelRatio * 2, 3)
-      const canvas = await html2canvas(captureRef.current, {
-        backgroundColor: '#335CFF', scale,
-        useCORS: true, logging: false, imageTimeout: 0,
-      })
-      canvas.toBlob(blob => {
-        if (!cancelled && blob) { setMobileBlob(blob); setPreparing(false) }
-      }, 'image/png')
-    }
-    prepare()
-    return () => { cancelled = true }
-  }, [mobile])
-
-  // Fade chrome quickly on desktop
-  useEffect(() => {
-    if (mobile) return
-    const t = setTimeout(() => setChromeVisible(false), 600)
-    return () => clearTimeout(t)
-  }, [mobile])
-
-  // Escape exits capture mode
+  // Escape exits capture mode on desktop
   useEffect(() => {
     if (mobile) return
     function onKey(e: KeyboardEvent) {
@@ -112,24 +94,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
     })
   }
 
-  // Mobile: blob is pre-generated so navigator.share fires right after the tap
-  async function handleMobileShare() {
-    if (!mobileBlob) return
-    const file = new File([mobileBlob], 'whispr.png', { type: 'image/png' })
-    try {
-      if (navigator.share && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Whispr' })
-      } else {
-        // Fallback: save to device
-        const url = URL.createObjectURL(mobileBlob)
-        const a = document.createElement('a')
-        a.href = url; a.download = 'whispr.png'; a.click()
-        URL.revokeObjectURL(url)
-      }
-    } catch { /* user cancelled */ }
-  }
-
-  // Desktop fallback: copy to clipboard
+  // Desktop: copy image to clipboard
   async function handleCopy() {
     if (!captureRef.current) return
     setCopying(true)
@@ -167,18 +132,18 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: mobile ? 'flex-start' : 'center',
-        padding: mobile ? '70px 16px 32px' : '24px',
+        padding: mobile ? '60px 16px 40px' : '24px',
         backdropFilter: captureMode ? 'blur(10px) saturate(0.5)' : 'blur(6px)',
         cursor: captureMode ? 'crosshair' : 'default',
         overflowY: mobile ? 'auto' : 'visible',
         transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
     >
-      {/* Cancel button — always visible so user can always exit */}
+      {/* Cancel button — always visible */}
       <button
         onClick={(e) => { e.stopPropagation(); onClose() }}
         style={{
-          position: 'absolute', top: '20px', right: '20px',
+          position: 'fixed', top: '16px', right: '16px',
           background: 'rgba(255,255,255,0.08)',
           border: '1px solid rgba(255,255,255,0.15)',
           borderRadius: '100px',
@@ -188,34 +153,52 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
           color: 'rgba(255,255,255,0.6)',
           fontSize: '12px',
           fontFamily: 'system-ui, sans-serif',
-          zIndex: 10,
+          zIndex: 10000,
         }}
       >
         <X size={13} /> Cancel
       </button>
 
+      {/* Desktop: OS shortcut prompt */}
       {!mobile && (
-        <>
-          {/* OS shortcut prompt — visible immediately in capture mode */}
-          <div style={{
-            position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
-            opacity: captureMode ? 1 : 0,
-            transition: 'opacity 0.2s ease',
-            pointerEvents: 'none',
-            background: '#335CFF',
-            borderRadius: '100px',
-            padding: '7px 18px',
-            fontSize: '13px',
-            fontWeight: 600,
-            color: 'white',
-            whiteSpace: 'nowrap',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            boxShadow: '0 4px 20px rgba(51,92,255,0.5)',
-          }}>
-            <span>{hint.keys}</span>
-            <span style={{ opacity: 0.75, fontWeight: 400 }}>{hint.action}</span>
-          </div>
-        </>
+        <div style={{
+          position: 'fixed', top: '18px', left: '50%', transform: 'translateX(-50%)',
+          opacity: captureMode ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+          pointerEvents: 'none',
+          background: '#335CFF',
+          borderRadius: '100px',
+          padding: '7px 18px',
+          fontSize: '13px',
+          fontWeight: 600,
+          color: 'white',
+          whiteSpace: 'nowrap',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          boxShadow: '0 4px 20px rgba(51,92,255,0.5)',
+          zIndex: 9999,
+        }}>
+          <span>{hint.keys}</span>
+          <span style={{ opacity: 0.75, fontWeight: 400 }}>{hint.action}</span>
+        </div>
+      )}
+
+      {/* Mobile: screenshot instruction above card */}
+      {mobile && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          marginBottom: '14px',
+          background: 'rgba(255,255,255,0.07)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '100px',
+          padding: '8px 16px',
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: '13px',
+          fontFamily: 'system-ui, sans-serif',
+          alignSelf: 'center',
+        }}>
+          <Camera size={14} style={{ flexShrink: 0 }} />
+          <span><strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{mobileHint}</strong> to screenshot</span>
+        </div>
       )}
 
       {/* Blue card */}
@@ -234,9 +217,10 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
           overflow: 'hidden',
           position: 'relative',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          // Crosshair cursor hints "screenshot this"
-          cursor: hoveringCard ? 'crosshair' : 'default',
-          boxShadow: hoveringCard ? '0 0 0 3px rgba(255,255,255,0.25), 0 24px 64px rgba(0,0,0,0.6)' : '0 24px 64px rgba(0,0,0,0.5)',
+          cursor: hoveringCard && !mobile ? 'crosshair' : 'default',
+          boxShadow: hoveringCard && !mobile
+            ? '0 0 0 3px rgba(255,255,255,0.25), 0 24px 64px rgba(0,0,0,0.6)'
+            : '0 24px 64px rgba(0,0,0,0.5)',
           transition: 'box-shadow 0.2s ease',
         } as React.CSSProperties}
       >
@@ -335,33 +319,25 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         </div>
       </div>
 
-      {/* Bottom actions — hidden in capture mode */}
+      {/* Bottom actions */}
       <div style={{
-        marginTop: '20px', textAlign: 'center',
+        marginTop: '16px', textAlign: 'center',
         opacity: captureMode ? 0 : 1,
         transition: 'opacity 0.25s ease',
         pointerEvents: captureMode ? 'none' : 'auto',
       }}>
         {mobile ? (
-          /* Mobile: big Share button → native share sheet */
-          <button
-            onClick={e => { e.stopPropagation(); handleMobileShare() }}
-            disabled={preparing || !mobileBlob}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '10px',
-              background: '#335CFF', border: 'none', borderRadius: '14px',
-              color: 'white', fontSize: '16px', fontWeight: 600,
-              cursor: preparing ? 'wait' : 'pointer', padding: '14px 32px',
-              opacity: preparing ? 0.6 : 1,
-              transition: 'opacity 0.15s',
-              fontFamily: 'system-ui, sans-serif',
-            }}
-          >
-            <Share2 size={18} />
-            {preparing ? 'Preparing…' : 'Share screenshot'}
-          </button>
+          /* Mobile: hint below card */
+          <p style={{
+            color: 'rgba(255,255,255,0.3)',
+            fontSize: '12px',
+            margin: 0,
+            fontFamily: 'system-ui, sans-serif',
+          }}>
+            Screenshot the card above and share it anywhere
+          </p>
         ) : (
-          /* Desktop: Space copies, button is a visible fallback */
+          /* Desktop: copy image to clipboard fallback */
           <button
             onClick={e => { e.stopPropagation(); handleCopy() }}
             disabled={copying}
