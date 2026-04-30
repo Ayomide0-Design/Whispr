@@ -24,13 +24,30 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const page_id = req.nextUrl.searchParams.get('page_id')
+  const token = req.nextUrl.searchParams.get('token')
   if (!page_id) return NextResponse.json({ error: 'Page ID required' }, { status: 400 })
 
-  const { data: messages, error } = await supabase
+  // Validate owner token — owners see everything including hidden
+  let isOwner = false
+  if (token) {
+    const { data: page } = await supabase
+      .from('pages')
+      .select('owner_token')
+      .eq('id', page_id)
+      .single()
+    isOwner = !!page && page.owner_token === token
+  }
+
+  // Visitors never receive hidden messages
+  let query = supabase
     .from('messages')
     .select('*')
     .eq('page_id', page_id)
     .order('created_at', { ascending: false })
+
+  if (!isOwner) query = query.eq('hidden', false)
+
+  const { data: messages, error } = await query
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!messages?.length) return NextResponse.json([])
@@ -53,10 +70,14 @@ export async function GET(req: NextRequest) {
       emojiCounts[r.emoji] = (emojiCounts[r.emoji] || 0) + 1
     })
 
+    // Visitors never receive hidden replies either
+    const msgReplies = (replies || [])
+      .filter((r) => r.message_id === msg.id && (isOwner || !r.hidden))
+
     return {
       ...msg,
       reactions: Object.entries(emojiCounts).map(([emoji, count]) => ({ emoji, count })),
-      replies: (replies || []).filter((r) => r.message_id === msg.id),
+      replies: msgReplies,
       total_reactions: msgReactions.length,
     }
   })

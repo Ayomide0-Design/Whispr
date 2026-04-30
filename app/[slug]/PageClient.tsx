@@ -32,16 +32,19 @@ interface Props {
   isOwner: boolean
 }
 
-function useFeed(pageId: string) {
+function useFeed(pageId: string, ownerToken?: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(async (showLoader = false) => {
     if (showLoader) setLoading(true)
-    const res = await fetch(`/api/messages?page_id=${pageId}`)
+    const url = ownerToken
+      ? `/api/messages?page_id=${pageId}&token=${ownerToken}`
+      : `/api/messages?page_id=${pageId}`
+    const res = await fetch(url)
     if (res.ok) setMessages(await res.json())
     if (showLoader) setLoading(false)
-  }, [pageId])
+  }, [pageId, ownerToken])
 
   const bumpReaction = useCallback((messageId: string) => {
     setMessages((prev) =>
@@ -74,7 +77,7 @@ function scrollToMessage(messageId: string) {
 function OwnerView({ page }: { page: Page }) {
   const cfg = MODE_CONFIG[page.mode]
   const Icon = MODE_ICONS[page.mode]
-  const { messages, loading, load, bumpReaction } = useFeed(page.id)
+  const { messages, loading, load, bumpReaction } = useFeed(page.id, page.owner_token)
   const [sortBy, setSortBy] = useState<'hot' | 'latest'>('latest')
   const [copied, setCopied] = useState(false)
   const [privateCopied, setPrivateCopied] = useState(false)

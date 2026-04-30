@@ -61,6 +61,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   const [submittingReply, setSubmittingReply] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [newReplyCount, setNewReplyCount] = useState(0)
+  // Owner can optimistically toggle hidden; visitors rely on server filtering
   const [hidden, setHidden] = useState(message.hidden ?? false)
   const [togglingHide, setTogglingHide] = useState(false)
 
@@ -69,7 +70,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setReactions(message.reactions)
   }, [message.reactions])
 
-  // Sync hidden flag from poll
+  // Sync hidden from server (keeps owner view in sync after reload)
   useEffect(() => {
     setHidden(message.hidden ?? false)
   }, [message.hidden])
