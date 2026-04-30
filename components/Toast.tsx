@@ -22,6 +22,8 @@ const TYPE_ICONS: Record<ToastItem['type'], string> = {
   reaction: '🔥',
 }
 
+const AUTO_DISMISS_MS = 90000 // 90 seconds
+
 function ToastCard({ toast, onDismiss, onScrollTo }: {
   toast: ToastItem
   onDismiss: (id: string) => void
@@ -34,9 +36,15 @@ function ToastCard({ toast, onDismiss, onScrollTo }: {
     const hideTimer = setTimeout(() => {
       setVisible(false)
       setTimeout(() => onDismiss(toast.id), 300)
-    }, 4500)
+    }, AUTO_DISMISS_MS)
     return () => { clearTimeout(showTimer); clearTimeout(hideTimer) }
   }, [toast.id, onDismiss])
+
+  function handleDismiss(e: React.MouseEvent) {
+    e.stopPropagation()
+    setVisible(false)
+    setTimeout(() => onDismiss(toast.id), 300)
+  }
 
   function handleClick() {
     onScrollTo(toast.messageId)
@@ -84,9 +92,31 @@ function ToastCard({ toast, onDismiss, onScrollTo }: {
           fontSize: '12px',
           flexShrink: 0,
           fontWeight: 600,
+          marginRight: '6px',
         }}>
           View →
         </span>
+        {/* Dismiss X */}
+        <button
+          onClick={handleDismiss}
+          style={{
+            background: 'rgba(255,255,255,0.08)',
+            border: 'none',
+            borderRadius: '50%',
+            width: '20px',
+            height: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: '11px',
+            flexShrink: 0,
+            padding: 0,
+          }}
+        >
+          ✕
+        </button>
       </div>
     </div>
   )
