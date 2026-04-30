@@ -112,6 +112,7 @@ export interface Message {
   page_id: string
   content: string
   created_at: string
+  hidden: boolean
   reactions: { emoji: string; count: number }[]
   replies: Reply[]
   total_reactions: number
@@ -123,4 +124,5 @@ export interface Reply {
   content: string
   created_at: string
   is_owner: boolean
+  hidden: boolean
 }

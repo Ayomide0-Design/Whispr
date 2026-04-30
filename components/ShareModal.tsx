@@ -57,26 +57,21 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
-  const [captureMode, setCaptureMode] = useState(false)
+  // Start in capture mode immediately on desktop
+  const [captureMode, setCaptureMode] = useState(() => !isMobile())
 
-  // On desktop, fade chrome after 1.5s
+  // Fade chrome quickly on desktop
   useEffect(() => {
     if (mobile) return
-    const t = setTimeout(() => setChromeVisible(false), 1500)
+    const t = setTimeout(() => setChromeVisible(false), 600)
     return () => clearTimeout(t)
   }, [mobile])
 
-  // Space → enter capture mode (hide everything, show only card + OS shortcut prompt)
+  // Escape exits capture mode
   useEffect(() => {
     if (mobile) return
     function onKey(e: KeyboardEvent) {
-      if (e.code === 'Space') {
-        e.preventDefault()
-        setCaptureMode(true)
-      }
-      if (e.code === 'Escape') {
-        setCaptureMode(false)
-      }
+      if (e.code === 'Escape') setCaptureMode(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -163,7 +158,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
         alignItems: 'center',
         justifyContent: 'center',
         padding: '24px',
-        backdropFilter: captureMode ? 'blur(20px) saturate(0.4)' : 'blur(6px)',
+        backdropFilter: captureMode ? 'blur(10px) saturate(0.5)' : 'blur(6px)',
         cursor: captureMode ? 'crosshair' : 'default',
         transition: 'background 0.25s ease, backdrop-filter 0.25s ease',
       }}
@@ -188,33 +183,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
 
       {!mobile && (
         <>
-          {/* "Press Space" hint — fades in after chrome fades, hidden in capture mode */}
-          <div style={{
-            position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
-            opacity: (!chromeVisible && !captureMode) ? 1 : 0,
-            transition: 'opacity 0.4s ease',
-            pointerEvents: 'none',
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            borderRadius: '100px',
-            padding: '6px 16px',
-            fontSize: '12px',
-            color: 'rgba(255,255,255,0.55)',
-            whiteSpace: 'nowrap',
-            display: 'flex', alignItems: 'center', gap: '8px',
-          }}>
-            <kbd style={{
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: '5px',
-              padding: '1px 7px',
-              fontSize: '11px',
-              fontFamily: 'inherit',
-            }}>Space</kbd>
-            to enter screenshot mode
-          </div>
-
-          {/* Capture mode prompt — shown after Space is pressed */}
+          {/* OS shortcut prompt — visible immediately in capture mode */}
           <div style={{
             position: 'absolute', top: '18px', left: '50%', transform: 'translateX(-50%)',
             opacity: captureMode ? 1 : 0,

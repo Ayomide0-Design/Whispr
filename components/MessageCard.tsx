@@ -10,6 +10,7 @@ interface Props {
   onReactionAdded: (messageId: string) => void
   isOwner?: boolean
   ownerName?: string
+  ownerToken?: string
 }
 
 function timeAgo(dateStr: string): string {
@@ -51,7 +52,7 @@ function setMyReaction(messageId: string, emoji: string | null) {
   localStorage.setItem('whispr_reactions', JSON.stringify(map))
 }
 
-export default function MessageCard({ message, onReactionAdded, isOwner = false, ownerName = '' }: Props) {
+export default function MessageCard({ message, onReactionAdded, isOwner = false, ownerName = '', ownerToken = '' }: Props) {
   const [reactions, setReactions] = useState(message.reactions)
   const [myEmoji, setMyEmoji] = useState<string | null>(null)
   const [replies, setReplies] = useState<Reply[]>(message.replies)
@@ -60,6 +61,8 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
   const [submittingReply, setSubmittingReply] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [newReplyCount, setNewReplyCount] = useState(0)
+  const [hidden, setHidden] = useState(message.hidden ?? false)
+  const [togglingHide, setTogglingHide] = useState(false)
 
   // Sync reactions when poll brings fresh data
   useEffect(() => {
@@ -157,13 +160,62 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
     setSubmittingReply(false)
   }
 
+  async function handleToggleHide() {
+    if (!ownerToken || togglingHide) return
+    setTogglingHide(true)
+    const next = !hidden
+    setHidden(next) // optimistic
+    await fetch('/api/hide', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'message', id: message.id, hidden: next, token: ownerToken }),
+    })
+    setTogglingHide(false)
+  }
+
+  async function handleToggleHideReply(replyId: string, currentlyHidden: boolean) {
+    if (!ownerToken) return
+    const next = !currentlyHidden
+    // Optimistic
+    setReplies(prev => prev.map(r => r.id === replyId ? { ...r, hidden: next } : r))
+    await fetch('/api/hide', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'reply', id: replyId, hidden: next, token: ownerToken }),
+    })
+  }
+
   const totalReactions = reactions.reduce((sum, r) => sum + r.count, 0)
 
+  // Non-owners never see hidden messages
+  if (hidden && !isOwner) return null
+
+  // Replies visible to non-owners (filter hidden)
+  const visibleReplies = isOwner ? replies : replies.filter(r => !r.hidden)
+
   return (
-    <div id={`msg-${message.id}`} className="card">
+    <div id={`msg-${message.id}`} className="card" style={hidden ? { opacity: 0.45 } : undefined}>
       {/* Message */}
       <p className="text-white/90 text-[15px] leading-relaxed mb-3">{message.content}</p>
-      <p className="text-white/30 text-xs mb-4">{timeAgo(message.created_at)}</p>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-white/30 text-xs">{timeAgo(message.created_at)}</p>
+        {isOwner && (
+          <button
+            onClick={handleToggleHide}
+            disabled={togglingHide}
+            className="text-xs transition-colors disabled:opacity-40"
+            style={{ color: hidden ? 'rgba(74,222,128,0.7)' : 'rgba(255,255,255,0.2)' }}
+          >
+            {hidden ? 'Unhide message' : 'Hide message'}
+          </button>
+        )}
+      </div>
+      {/* Hidden indicator for owner */}
+      {hidden && isOwner && (
+        <div className="mb-3 px-2 py-1 rounded-lg text-xs" style={{ background: 'rgba(255,100,100,0.08)', border: '1px solid rgba(255,100,100,0.15)', color: 'rgba(255,150,150,0.7)' }}>
+          Hidden from viewers
+        </div>
+      )}
 
       {/* Reaction bar */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -201,8 +253,8 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
           className="text-white/40 hover:text-white/70 text-xs transition-colors flex items-center gap-1.5"
         >
           <MessageCircle className="w-3.5 h-3.5" />
-          {replies.length > 0
-            ? `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'}`
+          {visibleReplies.length > 0
+            ? `${visibleReplies.length} repl${visibleReplies.length === 1 ? 'y' : 'ies'}`
             : 'Reply'}
           {/* New reply badge */}
           {newReplyCount > 0 && !showReplies && (
@@ -231,7 +283,7 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
           className="text-white/30 hover:text-white/60 text-xs transition-colors flex items-center gap-1.5"
         >
           <ImageDown className="w-3.5 h-3.5" />
-          Share image
+          Share screenshot
         </button>
       </div>
 
@@ -251,34 +303,49 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false,
         <div className="reply-thread-inner">
           <div className="pt-3 mt-3 border-t border-white/5">
             {/* Existing replies */}
-            {replies.length > 0 && (
+            {visibleReplies.length > 0 && (
               <div className="space-y-2 mb-3">
-                {replies.map((reply) => (
+                {visibleReplies.map((reply) => (
                   <div
                     key={reply.id}
                     className="rounded-xl px-3 py-2.5"
                     style={{
                       background: reply.is_owner ? 'rgba(51,92,255,0.08)' : 'rgba(255,255,255,0.05)',
                       border: reply.is_owner ? '1px solid rgba(51,92,255,0.25)' : '1px solid rgba(255,255,255,0.05)',
+                      opacity: reply.hidden ? 0.4 : 1,
                     }}
                   >
                     <p className="text-white/80 text-sm leading-relaxed">{reply.content}</p>
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-white/25 text-xs">{timeAgo(reply.created_at)}</p>
-                      {reply.is_owner && (
-                        <span style={{
-                          background: '#335CFF',
-                          color: 'white',
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '2px 8px',
-                          borderRadius: '100px',
-                          letterSpacing: '0.04em',
-                        }}>
-                          OWNER
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <button
+                            onClick={() => handleToggleHideReply(reply.id, reply.hidden ?? false)}
+                            className="text-xs transition-colors"
+                            style={{ color: reply.hidden ? 'rgba(74,222,128,0.6)' : 'rgba(255,255,255,0.2)' }}
+                          >
+                            {reply.hidden ? 'Unhide' : 'Hide reply'}
+                          </button>
+                        )}
+                        {reply.is_owner && (
+                          <span style={{
+                            background: '#335CFF',
+                            color: 'white',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '100px',
+                            letterSpacing: '0.04em',
+                          }}>
+                            OWNER
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    {reply.hidden && isOwner && (
+                      <p className="text-xs mt-1" style={{ color: 'rgba(255,150,150,0.6)' }}>Hidden from viewers</p>
+                    )}
                   </div>
                 ))}
               </div>
