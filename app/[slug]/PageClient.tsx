@@ -180,7 +180,7 @@ function OwnerView({ page }: { page: Page }) {
           </div>
         </div>
         {/* Reminder note */}
-        <p className="text-yellow-500/50 text-xs text-right">
+        <p className="text-white/25 text-xs text-right">
           🔒 Save your private link — it's the only way to access your messages from a new device
         </p>
       </div>
