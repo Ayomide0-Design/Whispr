@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // PATCH /api/hide
 // Body: { type: 'message' | 'reply', id: string, hidden: boolean, token: string }
@@ -31,7 +32,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('messages')
       .update({ hidden })
       .eq('id', id)
@@ -68,7 +69,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('replies')
       .update({ hidden })
       .eq('id', id)
