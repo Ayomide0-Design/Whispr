@@ -58,7 +58,7 @@ export default function ShareModal({ message, replies, showReplies, ownerName, o
   const topReactions = message.reactions.filter(r => r.count > 0).sort((a, b) => b.count - a.count)
 
   // Start in capture mode immediately on desktop
-  const [captureMode, setCaptureMode] = useState(() => !isMobile())
+  const [captureMode, setCaptureMode] = useState(() => detectOS() !== 'mobile')
 
   // Fade chrome quickly on desktop
   useEffect(() => {
