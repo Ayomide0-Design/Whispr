@@ -34,6 +34,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false)
   const [createError, setCreateError] = useState('')
   const [createdSlug, setCreatedSlug] = useState<string | null>(null)
+  const [ownerToken, setOwnerToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [ownerCopied, setOwnerCopied] = useState(false)
   const [avail, setAvail] = useState<AvailState>('idle')
@@ -47,7 +48,7 @@ export default function HomePage() {
 
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : ''
   const shareLink = createdSlug ? `${siteUrl}/${createdSlug}` : ''
-  const ownerLink = createdSlug ? `${siteUrl}/${createdSlug}?owner=1` : ''
+  const ownerLink = createdSlug && ownerToken ? `${siteUrl}/${createdSlug}?token=${ownerToken}` : ''
 
   // Real-time username availability check
   useEffect(() => {
@@ -81,6 +82,11 @@ export default function HomePage() {
     if (res.ok) {
       const page = await res.json()
       setCreatedSlug(page.slug)
+      setOwnerToken(page.owner_token)
+      // Save owner link to localStorage so "find my page" works on this device
+      const saved = JSON.parse(localStorage.getItem('whispr_owner_links') || '{}')
+      saved[page.slug] = `${window.location.origin}/${page.slug}?token=${page.owner_token}`
+      localStorage.setItem('whispr_owner_links', JSON.stringify(saved))
     } else {
       const { error } = await res.json()
       setCreateError(error || 'Something went wrong')
@@ -115,7 +121,14 @@ export default function HomePage() {
     const res = await fetch(`/api/pages?name=${encodeURIComponent(findUsername.trim())}`)
     if (res.ok) {
       const data = await res.json()
-      window.location.href = `/${data.slug}?owner=1`
+      // Check localStorage for saved owner link (same device)
+      const saved = JSON.parse(localStorage.getItem('whispr_owner_links') || '{}')
+      if (saved[data.slug]) {
+        window.location.href = saved[data.slug]
+      } else {
+        // Different device — take to public page only
+        window.location.href = `/${data.slug}`
+      }
     } else {
       setFindError('No page found with that username.')
       setFinding(false)

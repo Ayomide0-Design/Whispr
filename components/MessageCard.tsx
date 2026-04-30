@@ -210,23 +210,23 @@ export default function MessageCard({ message, onReactionAdded, isOwner = false 
                       border: reply.is_owner ? '1px solid rgba(51,92,255,0.25)' : '1px solid rgba(255,255,255,0.05)',
                     }}
                   >
-                    {reply.is_owner && (
-                      <div className="flex items-center gap-1.5 mb-1.5">
+                    <p className="text-white/80 text-sm leading-relaxed">{reply.content}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-white/25 text-xs">{timeAgo(reply.created_at)}</p>
+                      {reply.is_owner && (
                         <span style={{
                           background: '#335CFF',
                           color: 'white',
                           fontSize: '10px',
                           fontWeight: 700,
-                          padding: '2px 7px',
+                          padding: '2px 8px',
                           borderRadius: '100px',
                           letterSpacing: '0.04em',
                         }}>
                           OWNER
                         </span>
-                      </div>
-                    )}
-                    <p className="text-white/80 text-sm leading-relaxed">{reply.content}</p>
-                    <p className="text-white/25 text-xs mt-1">{timeAgo(reply.created_at)}</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

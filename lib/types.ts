@@ -104,6 +104,7 @@ export interface Page {
   slug: string
   mode: Mode
   created_at: string
+  owner_token: string
 }
 
 export interface Message {

@@ -5,7 +5,7 @@ import PageClient from './PageClient'
 
 interface Props {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ owner?: string }>
+  searchParams: Promise<{ token?: string }>
 }
 
 export async function generateMetadata({ params }: Props) {
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function SlugPage({ params, searchParams }: Props) {
   const { slug } = await params
-  const { owner } = await searchParams
+  const { token } = await searchParams
 
   const { data: page } = await supabase
     .from('pages')
@@ -40,5 +40,7 @@ export default async function SlugPage({ params, searchParams }: Props) {
     .select('*', { count: 'exact', head: true })
     .eq('page_id', (page as Page).id)
 
-  return <PageClient page={page as Page} initialCount={count ?? 0} isOwner={owner === '1'} />
+  const isOwner = !!(token && token === (page as Page).owner_token)
+
+  return <PageClient page={page as Page} initialCount={count ?? 0} isOwner={isOwner} />
 }
