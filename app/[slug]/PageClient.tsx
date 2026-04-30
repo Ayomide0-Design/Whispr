@@ -75,7 +75,7 @@ function OwnerView({ page }: { page: Page }) {
   const cfg = MODE_CONFIG[page.mode]
   const Icon = MODE_ICONS[page.mode]
   const { messages, loading, load, bumpReaction } = useFeed(page.id)
-  const [sortBy, setSortBy] = useState<'hot' | 'latest'>('hot')
+  const [sortBy, setSortBy] = useState<'hot' | 'latest'>('latest')
   const [copied, setCopied] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const prevRef = useRef<Message[]>([])
@@ -177,11 +177,11 @@ function OwnerView({ page }: { page: Page }) {
 
         {/* Sort tabs + count */}
         <div className="flex items-center gap-2 mb-5">
-          <button onClick={() => setSortBy('hot')} className={`tab-btn ${sortBy === 'hot' ? 'active' : ''}`}>
-            <span className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> Hot</span>
-          </button>
           <button onClick={() => setSortBy('latest')} className={`tab-btn ${sortBy === 'latest' ? 'active' : ''}`}>
             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Latest</span>
+          </button>
+          <button onClick={() => setSortBy('hot')} className={`tab-btn ${sortBy === 'hot' ? 'active' : ''}`}>
+            <span className="flex items-center gap-1.5"><Flame className="w-3.5 h-3.5" /> Hot</span>
           </button>
           <span className="text-white/30 text-xs ml-auto">
             {messages.length} message{messages.length !== 1 ? 's' : ''}
@@ -226,7 +226,7 @@ export default function PageClient({ page, initialCount, isOwner }: Props) {
   const [feedVisible, setFeedVisible] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const [sortBy, setSortBy] = useState<'hot' | 'latest'>('hot')
+  const [sortBy, setSortBy] = useState<'hot' | 'latest'>('latest')
   const [promptIndex, setPromptIndex] = useState(0)
   const [count, setCount] = useState(initialCount)
   const feedRef = useRef<HTMLDivElement>(null)
